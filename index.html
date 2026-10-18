@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vilse</title>
+<meta name="description" content="Du står någonstans på jorden. Se dig omkring och gissa var.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="stil.css?v=11">
+</head>
+<body data-lage="start">
+
+<!-- Gatuvyn ligger alltid längst bak -->
+<div id="vy" class="vy" aria-hidden="true">
+  <div id="vyRam" class="vy-ram"></div>
+  <div id="vyLaddar" class="vy-laddar" hidden>Laddar gatuvy…</div>
+</div>
+
+<!-- Start -->
+<section id="start" class="start">
+  <div class="start-panel">
+    <h1 class="ordmarke"><span class="skarm" aria-hidden="true"></span>Vilse</h1>
+    <p class="ingress">Du står någonstans på jorden. Se dig omkring, leta efter ledtrådar och sätt ut din gissning på kartan. Ju närmare du hamnar, desto fler poäng.</p>
+
+    <div class="flikar" role="tablist" aria-label="Läge">
+      <button id="flikKnappSpela" class="flik" role="tab" aria-selected="true" aria-controls="flikSpela" type="button">Spela</button>
+      <button id="flikKnappTrana" class="flik" role="tab" aria-selected="false" aria-controls="flikTrana" type="button">Träna</button>
+    </div>
+
+    <div id="flikSpela" class="flikinnehall" role="tabpanel" aria-labelledby="flikKnappSpela">
+      <fieldset class="val">
+        <legend>Karta</legend>
+        <div id="kartval" class="kartval"></div>
+      </fieldset>
+
+      <fieldset class="val">
+        <legend>Tid per runda</legend>
+        <div id="tidval" class="tidval"></div>
+      </fieldset>
+
+      <button id="startKnapp" class="knapp knapp-bana knapp-stor" type="button">Starta</button>
+      <p class="regler">5 rundor · högst 5 000 poäng per runda</p>
+    </div>
+
+    <div id="flikTrana" class="flikinnehall" role="tabpanel" aria-labelledby="flikKnappTrana" hidden>
+      <fieldset class="val">
+        <legend>Övning</legend>
+        <div id="ovningVal" class="kartval"></div>
+      </fieldset>
+
+      <fieldset class="val">
+        <legend>Område</legend>
+        <div id="omradeVal" class="chipval"></div>
+      </fieldset>
+
+      <fieldset class="val" id="nivaFalt">
+        <legend>Svarsalternativ</legend>
+        <div id="nivaVal" class="tidval tidval-2"></div>
+      </fieldset>
+
+      <button id="traningStart" class="knapp knapp-bana knapp-stor" type="button">Börja träna</button>
+      <div class="sidlankar">
+        <button id="oppnaBibliotek" class="lank-knapp" type="button">Ledtrådsbibliotek</button>
+        <button id="oppnaStatistik" class="lank-knapp" type="button">Din statistik</button>
+      </div>
+      <p class="regler">Ledtrådarna bygger på <a href="https://www.plonkit.net/guide" target="_blank" rel="noopener">Plonk It</a> (CC BY-NC-SA 4.0).</p>
+    </div>
+  </div>
+</section>
+
+<!-- Spelets överdel -->
+<header id="hud" class="hud" hidden>
+  <div class="hud-vanster">
+    <span class="ordmarke ordmarke-liten"><span class="skarm" aria-hidden="true"></span>Vilse</span>
+    <button id="avsluta" class="knapp knapp-papper knapp-liten" type="button">Avsluta</button>
+  </div>
+  <dl id="hudSpel" class="hud-stat">
+    <div class="stat-karta"><dt>Karta</dt><dd id="hudKarta"></dd></div>
+    <div><dt id="hudRundaEtikett">Runda</dt><dd id="hudRunda"></dd></div>
+    <div><dt>Poäng</dt><dd id="hudPoang"></dd></div>
+    <div id="hudTidRad"><dt>Tid</dt><dd id="hudTid"></dd></div>
+  </dl>
+  <dl id="hudTraning" class="hud-stat" hidden>
+    <div class="stat-karta"><dt>Träning</dt><dd id="hudOmrade"></dd></div>
+    <div><dt>Plats</dt><dd id="hudPlatsNr"></dd></div>
+    <div><dt>I rad</dt><dd id="hudIRad"></dd></div>
+    <div><dt>Träff</dt><dd id="hudTraff"></dd></div>
+  </dl>
+</header>
+
+<div id="bekrafta" class="bekrafta" role="dialog" aria-labelledby="bekraftaText" hidden>
+  <p id="bekraftaText">Avsluta spelet? Poängen från den här omgången sparas inte.</p>
+  <div class="knapprad">
+    <button id="bekraftaJa" class="knapp knapp-tryck" type="button">Avsluta</button>
+    <button id="bekraftaNej" class="knapp knapp-papper" type="button">Fortsätt spela</button>
+  </div>
+</div>
+
+<div id="verktyg" class="verktyg" hidden>
+  <button id="tillStart" class="knapp knapp-papper verktyg-knapp" type="button" title="Gå tillbaka till startpunkten">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4m0 0h11l-2 4 2 4H5"/></svg>
+    <span>Till startpunkten</span>
+  </button>
+  <button id="bytPlats" class="knapp knapp-papper verktyg-knapp" type="button" title="Byt till en ny plats om bilden är svart eller trasig">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h13l-3-3m3 3-3 3M20 17H7l3-3m-3 3 3 3"/></svg>
+    <span>Byt plats</span>
+  </button>
+</div>
+
+<!-- Gissningskartan -->
+<div id="giss" class="giss" hidden>
+  <div class="giss-topp">
+    <strong>Var är du?</strong>
+    <button id="stangKarta" class="knapp knapp-papper knapp-liten" type="button">Tillbaka till vyn</button>
+  </div>
+  <div id="gissKarta" class="giss-karta"></div>
+  <button id="gissaKnapp" class="knapp knapp-bana" type="button" disabled>Klicka på kartan för att gissa</button>
+</div>
+<button id="oppnaKarta" class="knapp knapp-bana oppna-karta" type="button" hidden>Öppna kartan</button>
+
+<!-- Träning: Vilket land? -->
+<div id="landPanel" class="kort land-panel" hidden>
+  <div id="landFraga">
+    <p class="overrad">Vilket land är du i?</p>
+    <div id="landVal" class="land-val"></div>
+    <p id="landLedtrad" class="land-ledtrad" aria-live="polite" hidden></p>
+    <div class="knapprad">
+      <button id="ledtradKnapp" class="knapp knapp-papper knapp-liten" type="button">Ledtråd</button>
+      <button id="jamforKnapp" class="knapp knapp-papper knapp-liten" type="button">Jämför länderna</button>
+    </div>
+  </div>
+
+  <div id="landSvar" class="land-svar" hidden>
+    <p class="overrad" id="svarRubrik"></p>
+    <p class="svar-land" id="svarLand"></p>
+    <p class="platsnamn" id="svarPlats"></p>
+    <div id="svarKarta" class="svar-karta"></div>
+    <div id="svarSkilj" class="svar-skilj" hidden></div>
+    <div id="svarTips" class="ledtradar"></div>
+    <div class="knapprad">
+      <button id="landNasta" class="knapp knapp-bana" type="button">Nästa plats</button>
+      <a id="svarPlonkit" class="knapp knapp-papper" href="https://www.plonkit.net/guide" target="_blank" rel="noopener">Plonk It ↗</a>
+    </div>
+  </div>
+</div>
+
+<aside id="jamfor" class="jamfor" aria-labelledby="jamforRubrik" hidden>
+  <div class="jamfor-topp">
+    <h2 id="jamforRubrik">Jämför länderna</h2>
+    <button id="stangJamfor" class="knapp knapp-papper knapp-liten" type="button">Stäng</button>
+  </div>
+  <div id="jamforLista" class="jamfor-lista"></div>
+</aside>
+
+<!-- Ledtrådsbibliotek -->
+<section id="bibliotek" class="sida" aria-labelledby="bibliotekRubrik" hidden>
+  <div class="sida-innehall">
+    <div class="sida-topp">
+      <div>
+        <p class="overrad">Träning</p>
+        <h2 id="bibliotekRubrik">Ledtrådsbibliotek</h2>
+      </div>
+      <button class="knapp knapp-papper knapp-liten stang-sida" type="button">Stäng</button>
+    </div>
+    <div class="filter">
+      <input id="bibliotekSok" class="sok" type="search" placeholder="Sök land" aria-label="Sök land">
+      <div id="bibliotekDelar" class="chipval chipval-rad"></div>
+      <div id="bibliotekTrafik" class="chipval chipval-rad"></div>
+    </div>
+    <p id="bibliotekAntal" class="etikett"></p>
+    <div id="bibliotekLista" class="landkort-lista"></div>
+    <p class="kalla">Källa: <a href="https://www.plonkit.net/guide" target="_blank" rel="noopener">Plonk It</a>. Texterna är korta sammanfattningar på svenska och delas under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.sv" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a>.</p>
+  </div>
+</section>
+
+<!-- Statistik -->
+<section id="statistik" class="sida" aria-labelledby="statistikRubrik" hidden>
+  <div class="sida-innehall">
+    <div class="sida-topp">
+      <div>
+        <p class="overrad">Träning</p>
+        <h2 id="statistikRubrik">Din statistik</h2>
+      </div>
+      <button class="knapp knapp-papper knapp-liten stang-sida" type="button">Stäng</button>
+    </div>
+    <div id="statistikInnehall"></div>
+  </div>
+</section>
+
+<!-- Resultat efter varje runda och slutresultat -->
+<section id="resultat" class="resultat" hidden>
+  <div id="resultatKarta" class="resultat-karta"></div>
+
+  <div id="rundKort" class="kort rund-kort" hidden>
+    <p class="overrad" id="rundNr"></p>
+    <div class="rund-siffror">
+      <div>
+        <p class="stor-siffra" id="rundAvstand"></p>
+        <p class="etikett" id="rundAvstandText"></p>
+      </div>
+      <div class="hoger">
+        <p class="stor-siffra" id="rundPoang"></p>
+        <p class="etikett">poäng</p>
+      </div>
+    </div>
+    <div class="stapel" aria-hidden="true"><i id="rundStapel"></i></div>
+    <p class="platsnamn">Platsen: <strong id="rundPlats"></strong></p>
+    <div id="rundLedtradar" class="ledtradar" hidden></div>
+    <button id="nastaKnapp" class="knapp knapp-bana knapp-stor" type="button">Nästa runda</button>
+  </div>
+
+  <div id="slutKort" class="kort slut-kort" hidden>
+    <p class="overrad" id="slutKarta"></p>
+    <p class="stor-siffra slut-summa"><span id="slutPoang"></span> <small>av 25 000</small></p>
+    <div class="stapel" aria-hidden="true"><i id="slutStapel"></i></div>
+    <p class="omdome" id="slutOmdome"></p>
+    <p class="rekord" id="slutRekord"></p>
+    <ol id="slutLista" class="slut-lista"></ol>
+    <div class="knapprad">
+      <button id="igenKnapp" class="knapp knapp-bana" type="button">Spela igen</button>
+      <button id="menyKnapp" class="knapp knapp-papper" type="button">Välj karta</button>
+    </div>
+  </div>
+</section>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="platser.js?v=11"></script>
+<script src="ledtradar.js?v=11"></script>
+<script src="spel.js?v=11"></script>
+<script src="traning.js?v=11"></script>
+</body>
+</html>
