@@ -4,6 +4,8 @@ Ett geografispel i stil med GeoGuessr. Du hamnar på en slumpad plats i Google S
 
 Fliken **Träna** på startskärmen lär dig känna igen länder med ledtrådar från [Plonk It](https://www.plonkit.net/guide).
 
+**Spela: https://nzxtify.github.io/vilse/**
+
 ## Starta
 
 Starta en lokal server i mappen och öppna http://localhost:5178:
