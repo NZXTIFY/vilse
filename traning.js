@@ -123,14 +123,16 @@
     spara('vilse.traningVal', { ovning: T.ovning, omrade: T.omrade.id, niva: T.niva });
   }
 
+  const FLIKAR = { spela: ['flikSpela', 'flikKnappSpela'], trana: ['flikTrana', 'flikKnappTrana'], multi: ['flikMulti', 'flikKnappMulti'] };
   function visaFlik(namn) {
-    const trana = namn === 'trana';
-    $('flikSpela').hidden = trana;
-    $('flikTrana').hidden = !trana;
-    $('flikKnappSpela').setAttribute('aria-selected', String(!trana));
-    $('flikKnappTrana').setAttribute('aria-selected', String(trana));
+    if (!FLIKAR[namn]) namn = 'spela';
+    for (const [flik, [panel, knapp]] of Object.entries(FLIKAR)) {
+      $(panel).hidden = flik !== namn;
+      $(knapp).setAttribute('aria-selected', String(flik === namn));
+    }
     spara('vilse.flik', namn);
   }
+  V.visaFlik = visaFlik;
 
   // ---------- Vilka länder och platser som kommer ----------
   function landPool() {
@@ -496,6 +498,7 @@
   // ---------- Händelser ----------
   $('flikKnappSpela').addEventListener('click', () => visaFlik('spela'));
   $('flikKnappTrana').addEventListener('click', () => visaFlik('trana'));
+  $('flikKnappMulti').addEventListener('click', () => visaFlik('multi'));
   $('flikTrana').addEventListener('change', e => {
     if (e.target.name === 'ovning') $('nivaFalt').hidden = e.target.value !== 'land';
   });
@@ -574,5 +577,5 @@
 
   // ---------- Kör ----------
   byggTraningsval();
-  visaFlik(las('vilse.flik', 'spela') === 'trana' ? 'trana' : 'spela');
+  visaFlik(las('vilse.flik', 'spela'));
 })();

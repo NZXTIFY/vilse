@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="stil.css?v=11">
+<link rel="stylesheet" href="stil.css?v=13">
 </head>
 <body data-lage="start">
 
@@ -28,6 +28,7 @@
     <div class="flikar" role="tablist" aria-label="Läge">
       <button id="flikKnappSpela" class="flik" role="tab" aria-selected="true" aria-controls="flikSpela" type="button">Spela</button>
       <button id="flikKnappTrana" class="flik" role="tab" aria-selected="false" aria-controls="flikTrana" type="button">Träna</button>
+      <button id="flikKnappMulti" class="flik" role="tab" aria-selected="false" aria-controls="flikMulti" type="button">Med vänner</button>
     </div>
 
     <div id="flikSpela" class="flikinnehall" role="tabpanel" aria-labelledby="flikKnappSpela">
@@ -68,6 +69,55 @@
       </div>
       <p class="regler">Ledtrådarna bygger på <a href="https://www.plonkit.net/guide" target="_blank" rel="noopener">Plonk It</a> (CC BY-NC-SA 4.0).</p>
     </div>
+
+    <div id="flikMulti" class="flikinnehall" role="tabpanel" aria-labelledby="flikKnappMulti" hidden>
+      <p class="ingress-liten">Spela samma platser samtidigt som dina vänner och se allas gissningar efter varje runda. Ingen inloggning, bara ett namn.</p>
+      <label class="falt" for="multiNamn">
+        <span>Ditt namn</span>
+        <input id="multiNamn" class="textfalt" type="text" maxlength="16" autocomplete="nickname" placeholder="Till exempel Gustav">
+      </label>
+      <button id="skapaRum" class="knapp knapp-bana knapp-stor" type="button">Skapa rum</button>
+      <p class="eller"><span>eller gå med i ett rum</span></p>
+      <div class="ga-med">
+        <input id="multiKod" class="textfalt kodfalt" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="KOD" aria-label="Rumskod">
+        <button id="gaMed" class="knapp knapp-tryck" type="button">Gå med</button>
+      </div>
+      <p id="multiStatus" class="multi-status" role="status" hidden></p>
+    </div>
+  </div>
+</section>
+
+<!-- Rum med vänner: väntar på att värden startar -->
+<section id="lobby" class="start" hidden>
+  <div class="start-panel">
+    <div class="lobby-topp">
+      <div>
+        <p class="overrad">Rumskod</p>
+        <p class="rumskod" id="lobbyKod"></p>
+      </div>
+      <button id="delaRum" class="knapp knapp-papper knapp-liten" type="button">Dela länk</button>
+    </div>
+    <p class="etikett lobby-lank" id="lobbyLank"></p>
+
+    <fieldset class="val">
+      <legend id="lobbySpelareRubrik">Spelare</legend>
+      <ul id="lobbySpelare" class="spelarlista"></ul>
+    </fieldset>
+
+    <div id="lobbyVard" class="flikinnehall">
+      <fieldset class="val">
+        <legend>Karta</legend>
+        <div id="lobbyKarta" class="chipval chipval-2"></div>
+      </fieldset>
+      <fieldset class="val">
+        <legend>Tid per runda</legend>
+        <div id="lobbyTid" class="tidval tidval-3"></div>
+      </fieldset>
+      <button id="lobbyStart" class="knapp knapp-bana knapp-stor" type="button">Starta spelet</button>
+    </div>
+    <p id="lobbyGast" class="lobby-gast" hidden></p>
+    <p class="regler">Värden behöver ha spelet öppet tills ni är klara.</p>
+    <button id="lobbyLamna" class="lank-knapp" type="button">Lämna rummet</button>
   </div>
 </section>
 
@@ -81,6 +131,7 @@
     <div class="stat-karta"><dt>Karta</dt><dd id="hudKarta"></dd></div>
     <div><dt id="hudRundaEtikett">Runda</dt><dd id="hudRunda"></dd></div>
     <div><dt>Poäng</dt><dd id="hudPoang"></dd></div>
+    <div id="hudGissatRad" hidden><dt>Gissat</dt><dd id="hudGissat"></dd></div>
     <div id="hudTidRad"><dt>Tid</dt><dd id="hudTid"></dd></div>
   </dl>
   <dl id="hudTraning" class="hud-stat" hidden>
@@ -212,6 +263,25 @@
     <button id="nastaKnapp" class="knapp knapp-bana knapp-stor" type="button">Nästa runda</button>
   </div>
 
+  <div id="multiKort" class="kort rund-kort sido" hidden>
+    <p class="overrad" id="multiRundNr"></p>
+    <p class="platsnamn">Platsen: <strong id="multiPlats"></strong></p>
+    <ol id="multiLista" class="multi-lista"></ol>
+    <button id="multiNasta" class="knapp knapp-bana knapp-stor" type="button">Nästa runda</button>
+    <p id="multiVantar" class="etikett" hidden>Väntar på att värden går vidare…</p>
+  </div>
+
+  <div id="multiSlut" class="kort slut-kort" hidden>
+    <p class="overrad">Slutresultat</p>
+    <p class="omdome" id="multiVinnare"></p>
+    <ol id="multiSlutLista" class="multi-lista"></ol>
+    <div class="knapprad">
+      <button id="multiIgen" class="knapp knapp-bana" type="button">Spela igen</button>
+      <button id="multiLamnaSlut" class="knapp knapp-papper" type="button">Lämna rummet</button>
+    </div>
+    <p id="multiSlutVantar" class="etikett" hidden>Värden kan starta en ny omgång.</p>
+  </div>
+
   <div id="slutKort" class="kort slut-kort" hidden>
     <p class="overrad" id="slutKarta"></p>
     <p class="stor-siffra slut-summa"><span id="slutPoang"></span> <small>av 25 000</small></p>
@@ -227,9 +297,11 @@
 </section>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="platser.js?v=11"></script>
-<script src="ledtradar.js?v=11"></script>
-<script src="spel.js?v=11"></script>
-<script src="traning.js?v=11"></script>
+<script src="platser.js?v=13"></script>
+<script src="ledtradar.js?v=13"></script>
+<script src="spel.js?v=13"></script>
+<script src="traning.js?v=13"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="multi.js?v=13"></script>
 </body>
 </html>

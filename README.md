@@ -34,6 +34,15 @@ Det går oftast också att dubbelklicka på `index.html`.
 
 Varje land väljs lika ofta, oavsett hur många platser det har. Hongkong, Svalbard, Madeira, Alaska och Hawaii räknas som egna länder, precis som hos Plonk It.
 
+## Med vänner
+
+- Fliken **Med vänner** skapar ett rum med en fyrteckenskod, till exempel `K7Q2`. Andra går med genom koden eller via länken `…/vilse/?rum=K7Q2`. Ingen inloggning behövs, bara ett namn.
+- Upp till 8 spelare. Värden väljer karta och tid per runda (1–3 minuter) och startar omgången.
+- Alla får samma 5 platser med samma startriktning samtidigt. Rundan slutar när alla har gissat eller tiden är ute.
+- Efter varje runda visas allas gissningar på kartan i var sin färg, med poänglista. Efter 5 rundor visas slutresultatet och värden kan starta en ny omgång.
+
+Tekniskt: värdens webbläsare håller i omgången, och de andra ansluter direkt till den med WebRTC via [PeerJS](https://peerjs.com/). PeerJS gratis kopplingsserver används bara för att webbläsarna ska hitta varandra, och dess reservservrar (TURN) hjälper när en direktanslutning inte går, till exempel på vissa mobilnät. Därför behöver värden ha spelet öppet tills omgången är slut. Koden finns i `multi.js`.
+
 ## Ledtrådarna och licensen
 
 `ledtradar.js` innehåller korta sammanfattningar på svenska av första steget ("Identifying the country") i Plonk Its guide för varje land. Plonk It är licensierat under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.sv), och därför gäller samma licens för `ledtradar.js`:

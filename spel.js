@@ -6,7 +6,8 @@
 
   const KARTOR = [
     { id: 'varlden', namn: 'Hela världen', text: 'Sex kontinenter, från Tromsø till Ushuaia.', filter: () => true },
-    { id: 'europa', namn: 'Europa', text: 'Från Svalbard till Teneriffa.', filter: p => p[4] === 'eu' || p[4] === 'se' },
+    // vy: kartans startutsnitt, när ytterpunkterna (Svalbard, Teneriffa) annars skulle visa nästan hela världen
+    { id: 'europa', namn: 'Europa', text: 'Från Svalbard till Teneriffa.', filter: p => p[4] === 'eu' || p[4] === 'se', vy: [[35, -11], [66, 40]] },
     { id: 'sverige', namn: 'Sverige', text: 'Från Ystad till Kiruna.', filter: p => p[4] === 'se' },
     { id: 'amerika', namn: 'Amerika', text: 'Från Alaska till Eldslandet.', filter: p => p[4] === 'am' },
   ];
@@ -95,6 +96,10 @@
     slutTid: 0,
     traning: false,      // fri träning (Var exakt?): inga rundor att räkna, ny plats efter varje gissning
     valjNasta: null,     // ger nästa plats i fri träning
+    multi: false,        // spel med vänner: rundorna styrs av värden via multi.js
+    multiGissat: false,  // har skickat sin gissning och väntar på de andra
+    multiAntal: 0,
+    multiTotal: 0,
   };
 
   // ---------- Gatuvyn ----------
@@ -117,8 +122,7 @@
     setTimeout(fardig, 8000);
     $('vyRam').replaceChildren(ram);
   }
-  function satVy(plats) {
-    const riktning = Math.floor(Math.random() * 360);
+  function satVy(plats, riktning = Math.floor(Math.random() * 360)) {
     S.vyUrl = `https://maps.google.com/maps?layer=c&cbll=${plats[0]},${plats[1]}&cbp=12,${riktning},0,0,0&output=svembed`;
   }
 
@@ -151,12 +155,14 @@
     S.vantarStartvy = false;
     if (S.karta.id === 'varlden') {
       gissKarta.setView([25, 10], 1);
+    } else if (S.karta.vy) {
+      gissKarta.fitBounds(S.karta.vy, { padding: [10, 10] });
     } else {
       gissKarta.fitBounds(L.latLngBounds(S.karta.pool.map(p => [p[0], p[1]])), { padding: [10, 10] });
     }
   }
   function satGissning(latlng) {
-    if (S.lage !== 'spel') return;
+    if (S.lage !== 'spel' || S.multiGissat) return;
     const ll = latlng.wrap();
     S.gissning = ll;
     if (gissMarkor) gissMarkor.setLatLng(latlng);
@@ -182,8 +188,8 @@
   }
 
   // Ritar banlinjen från gissningen till rätt plats, som en sträcka på en orienteringsbana
-  function ritaSträcka(fran, till, animera) {
-    const linje = L.polyline([fran, till], { color: banfarg(), weight: 3.5, opacity: 1, interactive: false }).addTo(resLager);
+  function ritaSträcka(fran, till, animera, farg = banfarg()) {
+    const linje = L.polyline([fran, till], { color: farg, weight: 3.5, opacity: 1, interactive: false }).addTo(resLager);
     if (!animera || reduceraRorelse) return;
     const p = linje.getElement();
     if (!p || !p.getTotalLength) return;
@@ -206,24 +212,29 @@
   }
 
   // ---------- Skärmlägen ----------
-  // Lägen: start, spel (gissa på kartan), resultat, slut och land (träningen Vilket land?)
+  // Lägen: start, lobby (rum med vänner), spel (gissa på kartan), resultat, slut och land (träningen Vilket land?)
   function visaLage(lage) {
     S.lage = lage;
     document.body.dataset.lage = lage;
     const spel = lage === 'spel', land = lage === 'land';
     $('start').hidden = lage !== 'start';
+    $('lobby').hidden = lage !== 'lobby';
     $('hud').hidden = !(spel || land);
     $('hudSpel').hidden = land;
     $('hudTraning').hidden = !land;
+    $('hudGissatRad').hidden = !S.multi;
     $('verktyg').hidden = !(spel || land);
+    $('bytPlats').hidden = S.multi;   // alla i rummet ska se samma plats
     $('giss').hidden = !spel;
     $('oppnaKarta').hidden = !spel;
     $('landPanel').hidden = !land;
     $('jamfor').hidden = true;
     $('resultat').hidden = lage !== 'resultat' && lage !== 'slut';
-    $('rundKort').hidden = lage !== 'resultat';
+    $('rundKort').hidden = lage !== 'resultat' || S.multi;
     $('rundKort').classList.toggle('sido', S.traning);
-    $('slutKort').hidden = lage !== 'slut';
+    $('multiKort').hidden = lage !== 'resultat' || !S.multi;
+    $('slutKort').hidden = lage !== 'slut' || S.multi;
+    $('multiSlut').hidden = lage !== 'slut' || !S.multi;
     $('bekrafta').hidden = true;
     $('giss').classList.remove('oppen', 'har-fokus');
   }
@@ -263,6 +274,7 @@
     const karta = KARTOR.find(k => k.id === kartId);
     const pool = window.PLATSER.filter(karta.filter);
     S.traning = false;
+    S.multi = false;
     S.karta = { ...karta, pool };
     S.tid = tid;
     S.skala = skalaFor(karta, pool);
@@ -283,6 +295,7 @@
   // valjNasta() väljer platsen, så att träningen kan styra vilka länder som kommer.
   function startaFriTraning({ id, namn, pool, valjNasta }) {
     S.traning = true;
+    S.multi = false;
     S.karta = { id, namn, pool };
     S.tid = 0;
     S.skala = id === 'varlden' ? 1492.7 : skalaFor({ id }, pool);
@@ -293,6 +306,32 @@
     initGissKarta();
     gissKarta.invalidateSize({ animate: false });
     startaRunda();
+  }
+
+  // En runda i ett rum med vänner. Värden bestämmer plats, startriktning och hur lång tid som är kvar,
+  // så att alla ser samma sak samtidigt. Gissningen skickas till värden i stället för att räknas här.
+  function startaMultiRunda({ kartId, nr, antal, plats, riktning, kvarMs, total }) {
+    const karta = KARTOR.find(k => k.id === kartId) || KARTOR[0];
+    const pool = window.PLATSER.filter(karta.filter);
+    S.multi = true;
+    S.traning = false;
+    S.karta = { ...karta, pool };
+    S.nr = nr;
+    S.multiAntal = antal;
+    S.multiTotal = total;
+    S.multiGissat = false;
+    S.tid = kvarMs ? Math.ceil(kvarMs / 1000) : 0;
+    visaLage('spel');
+    initGissKarta();
+    gissKarta.invalidateSize({ animate: false });
+    rensaGissning();
+    startvyGissKarta();
+    uppdateraHud();
+    stoppaTimer();
+    $('hudTidRad').hidden = !kvarMs;
+    satVy(plats, riktning);
+    laddaVy();
+    if (kvarMs) startaTimer(kvarMs);
   }
 
   function startaRunda() {
@@ -310,15 +349,15 @@
   function uppdateraHud() {
     $('hudKarta').textContent = S.karta.namn;
     $('hudRundaEtikett').textContent = S.traning ? 'Plats' : 'Runda';
-    $('hudRunda').textContent = S.traning ? `${S.nr + 1}` : `${S.nr + 1} / ${RUNDOR}`;
-    $('hudPoang').textContent = nf.format(S.rundor.reduce((s, r) => s + r.poang, 0));
+    $('hudRunda').textContent = S.traning ? `${S.nr + 1}` : `${S.nr + 1} / ${S.multi ? S.multiAntal : RUNDOR}`;
+    $('hudPoang').textContent = nf.format(S.multi ? S.multiTotal : S.rundor.reduce((s, r) => s + r.poang, 0));
   }
 
   // ---------- Timer ----------
-  function startaTimer() {
+  function startaTimer(ms = S.tid * 1000) {
     stoppaTimer();
     if (!S.tid || S.lage !== 'spel') return;
-    S.slutTid = performance.now() + S.tid * 1000;
+    S.slutTid = performance.now() + ms;
     const tick = () => {
       const kvar = Math.max(0, S.slutTid - performance.now());
       $('hudTid').textContent = fmtTid(Math.ceil(kvar / 1000));
@@ -337,6 +376,17 @@
   // ---------- Gissning och resultat ----------
   function gissa() {
     if (S.lage !== 'spel') return;
+    if (S.multi) {
+      if (S.multiGissat) return;
+      S.multiGissat = true;
+      stoppaTimer();
+      const knapp = $('gissaKnapp');
+      knapp.disabled = true;
+      knapp.textContent = 'Väntar på de andra…';
+      $('giss').classList.remove('oppen');
+      if (api.multiGissa) api.multiGissa(S.gissning ? { lat: S.gissning.lat, lng: S.gissning.lng } : null);
+      return;
+    }
     stoppaTimer();
     const runda = S.rundor[S.nr];
     const [lat, lng] = runda.plats;
@@ -392,8 +442,54 @@
     $('nastaKnapp').focus({ preventScroll: true });
   }
 
+  // Resultat i ett rum: rätt plats och allas gissningar, var och en i sin färg.
+  // multi.js fyller kortet innan det här anropas, så att kartan kan lämna plats för det.
+  function visaMultiResultat(plats, rader) {
+    visaLage('resultat');
+    initResKarta();
+    resLager.clearLayers();
+    const facit = [plats[0], plats[1]];
+    const punkter = [facit];
+    for (const r of rader) {
+      if (r.lat == null) continue;
+      const g = [r.lat, r.lng];
+      const f = [plats[0], narmasteLng(plats[1], r.lng)];
+      ritaSträcka(g, f, true, r.farg);
+      L.marker(g, { icon: spelarIkon(r), keyboard: false, interactive: false }).addTo(resLager);
+      punkter.push(g, f);
+    }
+    L.marker(facit, { icon: ikonFacit, keyboard: false, interactive: false }).addTo(resLager);
+    passaIn(punkter, $('multiKort'), 16);
+  }
+
+  // Slutresultat i ett rum: de fem platserna, numrerade
+  function visaMultiSlut(platser) {
+    visaLage('slut');
+    initResKarta();
+    resLager.clearLayers();
+    platser.forEach((p, i) => L.marker([p[0], p[1]], { icon: numreradIkon('markor-facit', 20, i + 1), keyboard: false, interactive: false }).addTo(resLager));
+    passaIn(platser.map(p => [p[0], p[1]]), $('multiSlut'), 8);
+  }
+
+  // Zooma in punkterna och lämna plats för kortet: till höger på dator, längst ned på mobil
+  function passaIn(punkter, kort, maxZoom) {
+    if (punkter.length === 1) { resKarta.setView(punkter[0], 5, { animate: false }); return; }
+    resKarta.fitBounds(L.latLngBounds(punkter), {
+      paddingTopLeft: [50, 60],
+      paddingBottomRight: mobil.matches ? [50, kort.offsetHeight + 40] : [kort.offsetWidth + 60, 60],
+      maxZoom,
+      animate: false,
+    });
+  }
+
+  const spelarIkon = r => L.divIcon({
+    className: 'markor-spelare', iconSize: [28, 28], iconAnchor: [14, 14],
+    html: `<span style="border-color:${r.farg};color:${r.farg}">${r.namn.trim().charAt(0).toUpperCase() || '?'}</span>`,
+  });
+
   function nasta() {
     if (S.lage !== 'resultat') return;
+    if (S.multi) { if (api.multiNasta) api.multiNasta(); return; }
     S.nr++;
     if (S.traning) {
       S.rundor.push({ plats: S.valjNasta(), gissning: null, km: null, poang: 0 });
@@ -513,6 +609,8 @@
   function tillMeny() {
     stoppaTimer();
     S.traning = false;
+    S.multi = false;
+    S.multiGissat = false;
     visaLage('start');
     byggStart();
     bakgrundsvy();
@@ -533,11 +631,18 @@
   $('bytPlats').addEventListener('click', bytPlats);
   // Träning sparas efter varje svar, så där behövs ingen bekräftelse
   $('avsluta').addEventListener('click', () => {
-    if (S.traning || S.lage === 'land') tillMeny();
-    else $('bekrafta').hidden = !$('bekrafta').hidden;
+    if (S.traning || S.lage === 'land') { tillMeny(); return; }
+    $('bekraftaText').textContent = S.multi
+      ? 'Lämna rummet? Du kan gå med igen med samma kod så länge värden är kvar.'
+      : 'Avsluta spelet? Poängen från den här omgången sparas inte.';
+    $('bekraftaJa').textContent = S.multi ? 'Lämna' : 'Avsluta';
+    $('bekrafta').hidden = !$('bekrafta').hidden;
   });
   $('bekraftaNej').addEventListener('click', () => { $('bekrafta').hidden = true; });
-  $('bekraftaJa').addEventListener('click', tillMeny);
+  $('bekraftaJa').addEventListener('click', () => {
+    if (S.multi && api.multiLamna) api.multiLamna();
+    else tillMeny();
+  });
 
   $('oppnaKarta').addEventListener('click', () => {
     $('giss').classList.add('oppen');
@@ -567,10 +672,26 @@
     }
   });
 
-  // ---------- Det träningen (traning.js) använder ----------
+  // ---------- Det träningen (traning.js) och rummen (multi.js) använder ----------
+  // Platserna till en omgång i ett rum, med samma urval som i vanligt spel
+  function valjPlatser(kartId, antal) {
+    const karta = KARTOR.find(k => k.id === kartId) || KARTOR[0];
+    return ordnaPlatser(window.PLATSER.filter(karta.filter), karta).slice(0, antal);
+  }
+  function skalaForKarta(kartId) {
+    const karta = KARTOR.find(k => k.id === kartId) || KARTOR[0];
+    return skalaFor(karta, window.PLATSER.filter(karta.filter));
+  }
+
   Object.assign(api, {
     S, $, nf, las, spara, blanda, avstandKm, fmtAvstand, reduceraRorelse, mobil,
     satVy, laddaVy, kartlager, ikonFacit, visaLage, tillMeny, startaFriTraning,
+    KARTOR, RUNDOR, valjPlatser, skalaForKarta, poangFor, raknaUpp,
+    startaMultiRunda, visaMultiResultat, visaMultiSlut, bakgrundsvy,
+    // Sätts av multi.js:
+    multiGissa: null,     // (gissning eller null) => skickar gissningen till värden
+    multiNasta: null,     // värden går vidare till nästa runda
+    multiLamna: null,     // lämnar rummet
     // Sätts av traning.js:
     ledtradarFor: null,   // (plats, element) => fyller i landets ledtrådar på resultatkortet
     bytLandPlats: null,   // byter plats i övningen Vilket land?

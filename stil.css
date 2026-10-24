@@ -52,7 +52,8 @@ button { font: inherit; color: inherit; }
   height: calc(100% + var(--vy-forskjutning));
   border: 0;
 }
-body[data-lage="start"] .vy-ram { filter: blur(7px) saturate(1.15); transform: scale(1.06); pointer-events: none; }
+body[data-lage="start"] .vy-ram,
+body[data-lage="lobby"] .vy-ram { filter: blur(7px) saturate(1.15); transform: scale(1.06); pointer-events: none; }
 .vy-laddar {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
   background: var(--papper); color: var(--tryck);
@@ -478,6 +479,59 @@ body[data-lage="start"] .vy-ram { filter: blur(7px) saturate(1.15); transform: s
 .bekrafta-inline { display: grid; gap: 10px; padding: 14px; border: 1.5px solid var(--tryck); border-radius: var(--radie); max-width: 420px; }
 .bekrafta-inline p { margin: 0; }
 
+/* ---------- Med vänner ---------- */
+.ingress-liten { margin: 0; font-size: 15px; color: var(--tryck-2); max-width: 44ch; }
+.falt { display: grid; gap: 6px; }
+.falt > span { font: 600 13px var(--font-text); letter-spacing: .14em; text-transform: uppercase; color: var(--tryck-2); }
+.textfalt {
+  width: 100%; min-height: 46px; padding: 0 12px;
+  border: 1.5px solid var(--linje); border-radius: var(--radie); background: var(--kort-ljus);
+  font: 500 17px var(--font-text); color: var(--tryck);
+}
+.textfalt:focus { outline: 3px solid var(--oppen-mark); outline-offset: 1px; border-color: var(--tryck-2); }
+.kodfalt { font: 600 22px var(--font-mono); letter-spacing: .3em; text-transform: uppercase; text-align: center; }
+.kodfalt::placeholder { letter-spacing: .2em; color: var(--linje); }
+.eller { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 14px; color: var(--tryck-2); }
+.eller::before, .eller::after { content: ""; flex: 1; height: 1px; background: var(--linje); }
+.ga-med { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.ga-med .knapp { min-height: 46px; }
+.multi-status { margin: 0; padding: 10px 12px; border-radius: var(--radie); background: var(--papper-2); font-size: 15px; }
+.multi-status.fel { background: var(--fel-ljus); }
+
+.lobby-topp { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.rumskod { margin: 2px 0 0; font: 800 68px/.9 var(--font-rubrik); letter-spacing: .14em; color: var(--bana); }
+.lobby-lank { margin: -12px 0 0; font: 500 13px var(--font-mono); overflow-wrap: anywhere; }
+.spelarlista { list-style: none; margin: 0; padding: 0; border-top: 1.5px solid var(--tryck); border-bottom: 1.5px solid var(--tryck); }
+.spelarlista li { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-top: 1px solid var(--linje); }
+.spelarlista li:first-child { border-top: 0; }
+.prick { flex: none; width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(21, 23, 26, .18); }
+.spelarnamn { min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.spelarnamn small { display: block; font-weight: 400; font-size: 13px; color: var(--tryck-2); }
+.tagg { padding: 1px 8px; border-radius: 999px; background: var(--papper-2); font: 600 12px var(--font-text); color: var(--tryck-2); }
+.tagg-du { background: var(--bana); color: #fff; }
+.chipval-2 { grid-template-columns: repeat(2, 1fr); }
+.tidval-3 { grid-template-columns: repeat(3, 1fr); }
+.lobby-gast { margin: 0; padding: 12px 14px; border-radius: var(--radie); background: var(--papper-2); font-size: 15px; }
+
+.multi-lista { list-style: none; margin: 0; padding: 0; border-top: 1.5px solid var(--tryck); border-bottom: 1.5px solid var(--tryck); }
+.multi-lista li {
+  display: grid; grid-template-columns: 22px 14px minmax(0, 1fr) auto; align-items: center; gap: 4px 10px;
+  padding: 9px 4px; border-top: 1px solid var(--linje);
+}
+.multi-lista li:first-child { border-top: 0; }
+.multi-lista li.jag { background: rgba(163, 35, 122, .07); }
+.placering { font: 800 20px var(--font-rubrik); color: var(--tryck-2); text-align: center; }
+.multi-lista .poang { text-align: right; font: 700 20px/1.1 var(--font-rubrik); font-variant-numeric: tabular-nums; }
+.multi-lista .poang small { display: block; font: 500 12px var(--font-text); color: var(--tryck-2); }
+
+/* Spelarnas gissningar på resultatkartan: en ring i spelarens färg med första bokstaven i namnet */
+.markor-spelare span {
+  display: grid; place-items: center; box-sizing: border-box;
+  width: 28px; height: 28px; border-radius: 50%; border: 4px solid;
+  background: #fff; font: 800 13px/1 var(--font-text);
+  box-shadow: 0 0 0 1.5px #fff, 0 2px 6px rgba(0, 0, 0, .35);
+}
+
 /* ---------- Mobil ---------- */
 @media (max-width: 720px) {
   .start { padding-block: 16px; align-items: start; background: rgba(10, 12, 14, .55); }
@@ -519,6 +573,11 @@ body[data-lage="start"] .vy-ram { filter: blur(7px) saturate(1.15); transform: s
   .stor-siffra { font-size: 36px; }
   .slut-kort { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; max-height: 64%; padding: 18px; }
   .slut-summa { font-size: 48px; }
+
+  /* Med vänner */
+  .flikar { gap: 18px; }
+  .flik { font-size: 19px; }
+  .rumskod { font-size: 56px; }
 
   /* Träning */
   .chipval { grid-template-columns: repeat(2, 1fr); }
