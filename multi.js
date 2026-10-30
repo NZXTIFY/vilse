@@ -4,7 +4,10 @@
 // PeerJS gratis kopplingsserver används bara för att webbläsarna ska hitta varandra.
 //
 // Meddelanden från gäst till värd:  hej, gissning, puls, hejda
-// Meddelanden från värd till gäst:  valkommen, lobby, runda, gissat, resultat, slut, puls, fel, stangt
+// Meddelanden från värd till gäst:  valkommen, lobby, forladda, runda, gissat, resultat, slut, puls, fel, stangt
+//
+// forladda skickar nästa rundas plats i förväg (i lobbyn och medan resultatet visas), så att alla
+// hinner ladda gatuvyn i bakgrunden och rundan inte börjar med en svart skärm.
 (() => {
   'use strict';
 
@@ -39,6 +42,7 @@
     anslutningar: new Map(), // id -> anslutning
     senastHord: new Map(),   // id -> tidpunkt för senaste meddelandet
     rundor: [],              // [{ plats, riktning }]
+    forberedd: null,         // kartan som rundor valdes för i lobbyn
     gissningar: new Map(),   // id -> { lat, lng } eller null (ingen gissning)
     total: {},               // id -> poäng hittills
     skala: 1,
@@ -102,7 +106,7 @@
     if (M.peer && !M.peer.destroyed) M.peer.destroy();
     Object.assign(M, {
       roll: null, peer: null, kod: '', jag: '', lage: 'lobby', spelare: [], nr: 0, pulsTimer: 0,
-      anslutningar: new Map(), senastHord: new Map(), rundor: [], gissningar: new Map(), total: {},
+      anslutningar: new Map(), senastHord: new Map(), rundor: [], forberedd: null, gissningar: new Map(), total: {},
       deadline: 0, rundTimer: 0, senaste: null, vard: null, senastFranVard: 0,
     });
   }
@@ -135,6 +139,7 @@
       M.pulsTimer = setInterval(vardPuls, PULS_MS);
       visaStatus('');
       visaLobby();
+      forberedOmgang();
     });
     peer.on('connection', taEmotGast);
     // Förlorad kontakt med kopplingsservern påverkar inte redan anslutna spelare, men nya kan inte ansluta
@@ -176,6 +181,9 @@
         // Den som kommer in mitt i en omgång hoppar in där omgången är
         if (M.lage === 'runda') skicka(anslutning, rundMeddelande(id));
         else if (M.senaste && M.lage !== 'lobby') skicka(anslutning, M.senaste);
+        // och får nästa runda att förladda
+        const nasta = M.lage === 'lobby' ? 0 : M.lage === 'resultat' ? M.nr + 1 : -1;
+        if (nasta >= 0 && M.rundor[nasta]) skicka(anslutning, forladdaMeddelande(nasta));
         break;
       }
       case 'gissning': vardGissning(id, m); break;
@@ -226,9 +234,29 @@
     visaLobbyMeddelande(m);
   }
 
-  function startaOmgang() {
+  // Väljer omgångens platser redan i lobbyn och låter alla börja ladda den första
+  function forberedOmgang() {
     if (M.roll !== 'vard') return;
     M.rundor = V.valjPlatser(M.installningar.karta, V.RUNDOR).map(plats => ({ plats, riktning: Math.floor(Math.random() * 360) }));
+    M.forberedd = M.installningar.karta;
+    skickaForladda(0);
+  }
+
+  function forladdaMeddelande(nr) {
+    const r = M.rundor[nr];
+    return { t: 'forladda', plats: [r.plats[0], r.plats[1]], riktning: r.riktning };
+  }
+  function skickaForladda(nr) {
+    if (!M.rundor[nr]) return;
+    const m = forladdaMeddelande(nr);
+    skickaTillAlla(m);
+    V.forladda(m.plats, m.riktning);
+  }
+
+  function startaOmgang() {
+    if (M.roll !== 'vard') return;
+    if (!M.rundor.length || M.forberedd !== M.installningar.karta) forberedOmgang();
+    M.forberedd = null;
     M.skala = V.skalaForKarta(M.installningar.karta);
     M.total = Object.fromEntries(M.spelare.map(s => [s.id, 0]));
     M.nr = 0;
@@ -290,6 +318,7 @@
     M.senaste = { t: 'resultat', nr: M.nr, antal: M.rundor.length, plats: [lat, lng, ort, land], rader };
     skickaTillAlla(M.senaste);
     visaResultat(M.senaste);
+    skickaForladda(M.nr + 1);
   }
 
   function vardNasta() {
@@ -314,6 +343,7 @@
     M.lage = 'lobby';
     M.senaste = null;
     skickaLobby();
+    forberedOmgang();
   }
 
   // ---------- Gäst ----------
@@ -371,6 +401,7 @@
     switch (m.t) {
       case 'valkommen': M.jag = m.du; visaStatus(''); break;
       case 'lobby': visaLobbyMeddelande(m); break;
+      case 'forladda': if (Array.isArray(m.plats)) V.forladda(m.plats, m.riktning); break;
       case 'runda': visaRunda(m); break;
       case 'gissat': visaGissat(m); break;
       case 'resultat': visaResultat(m); break;
@@ -529,6 +560,7 @@
     if (e.target.name === 'rumTid') M.installningar = { ...M.installningar, tid: Number(e.target.value) };
     spara('vilse.rumVal', M.installningar);
     skickaLobby();
+    if (e.target.name === 'rumKarta') forberedOmgang();   // ny karta, nya platser att förladda
   });
   $('lobbyStart').addEventListener('click', startaOmgang);
   $('lobbyLamna').addEventListener('click', lamna);

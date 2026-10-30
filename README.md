@@ -19,7 +19,8 @@ Det går oftast också att dubbelklicka på `index.html`.
 ## Så funkar det
 
 - **Gatuvyn** är Googles inbäddade Street View (ingen API-nyckel behövs). Iframen är förskjuten uppåt så att Googles adressruta inte syns.
-- **Kartorna** använder Leaflet med OpenStreetMap-bilder.
+- **Kartorna** använder Leaflet med Esris gatukarta (World Street Map), som har ortnamn med latinska bokstäver i hela världen.
+- **Förladdning:** nästa plats laddas i en osynlig ram medan du tittar på förra resultatet (och runda 1 redan på startskärmen), så att rundan inte börjar med en svart skärm. I rum med vänner skickar värden nästa plats i förväg till alla.
 - **Poäng** räknas som i GeoGuessr: `5000 · e^(−10 · avstånd / kartans diagonal)`.
 - **Platserna** finns i `platser.js` (638 st i 95 länder och områden). Varje punkt ligger på en bilväg så att Googles egna gatubilder visas i stället för användarnas inomhusfoton.
 - Rekord, träningsstatistik och senast spelade platser sparas i webbläsarens `localStorage`.

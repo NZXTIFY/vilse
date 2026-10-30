@@ -100,16 +100,51 @@
     multiGissat: false,  // har skickat sin gissning och väntar på de andra
     multiAntal: 0,
     multiTotal: 0,
+    forberett: null,     // { kartId, ordning }: platserna till nästa omgång, valda i förväg för förladdning
+    nastaPlats: null,    // nästa plats i fri träning, vald i förväg för förladdning
   };
 
   // ---------- Gatuvyn ----------
+  // Googles inbäddning laddar panoramat först efter att ramen har laddat, och det kan ta många sekunder.
+  // Därför förladdas nästa plats i en osynlig ram medan spelaren tittar på resultatet,
+  // så att vyn kan visas direkt när rundan börjar.
   let vyLaddning = 0;
-  function laddaVy(onLaddad) {
+  let forladdad = null;   // { url, nyckel, riktning, ram }
+  const slumpRiktning = () => Math.floor(Math.random() * 360);
+  const platsNyckel = plats => `${plats[0]},${plats[1]}`;
+  const vyUrlFor = (plats, riktning) =>
+    `https://maps.google.com/maps?layer=c&cbll=${plats[0]},${plats[1]}&cbp=12,${riktning},0,0,0&output=svembed`;
+
+  function skapaRam(url) {
     const ram = document.createElement('iframe');
-    ram.src = S.vyUrl;
+    ram.src = url;
     ram.title = 'Gatuvy';
     ram.setAttribute('allow', 'fullscreen');
+    return ram;
+  }
+
+  // Tar bort alla ramar utom den som ska visas och den som förladdas
+  function stadaRamar(behall) {
+    for (const ram of [...$('vyRam').children]) {
+      if (ram !== behall && ram !== (forladdad && forladdad.ram)) ram.remove();
+    }
+  }
+
+  function laddaVy(onLaddad) {
     const mitt = ++vyLaddning;
+    if (forladdad && forladdad.url === S.vyUrl) {
+      // Vyn har laddat i bakgrunden, så den kan visas direkt
+      const ram = forladdad.ram;
+      forladdad = null;
+      ram.classList.remove('forladdad');
+      ram.removeAttribute('tabindex');
+      ram.removeAttribute('aria-hidden');
+      stadaRamar(ram);
+      $('vyLaddar').hidden = true;
+      if (onLaddad) onLaddad();
+      return;
+    }
+    const ram = skapaRam(S.vyUrl);
     $('vyLaddar').hidden = false;
     let klar = false;
     const fardig = () => {
@@ -120,17 +155,40 @@
     };
     ram.addEventListener('load', () => setTimeout(fardig, 400));
     setTimeout(fardig, 8000);
-    $('vyRam').replaceChildren(ram);
+    $('vyRam').appendChild(ram);
+    stadaRamar(ram);
   }
-  function satVy(plats, riktning = Math.floor(Math.random() * 360)) {
-    S.vyUrl = `https://maps.google.com/maps?layer=c&cbll=${plats[0]},${plats[1]}&cbp=12,${riktning},0,0,0&output=svembed`;
+
+  // Börjar ladda en plats i en osynlig ram under den som visas
+  function forladda(plats, riktning = slumpRiktning()) {
+    if (!plats) return;
+    const url = vyUrlFor(plats, riktning);
+    if (forladdad && forladdad.url === url) return;
+    if (forladdad) forladdad.ram.remove();
+    const ram = skapaRam(url);
+    ram.classList.add('forladdad');
+    ram.setAttribute('tabindex', '-1');
+    ram.setAttribute('aria-hidden', 'true');
+    $('vyRam').prepend(ram);
+    forladdad = { url, nyckel: platsNyckel(plats), riktning, ram };
+  }
+
+  // En förladdad plats behåller sin startriktning, annars blir adressen en annan och ramen kan inte användas
+  function satVy(plats, riktning) {
+    if (riktning == null) {
+      riktning = forladdad && forladdad.nyckel === platsNyckel(plats) ? forladdad.riktning : slumpRiktning();
+    }
+    S.vyUrl = vyUrlFor(plats, riktning);
   }
 
   // ---------- Kartor ----------
+  // Esris gatukarta har ortnamn med latinska bokstäver i hela världen (OpenStreetMap visar dem på
+  // landets eget språk och skrift, till exempel kinesiska tecken).
   function kartlager() {
-    return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    return L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+      maxNativeZoom: 18,
+      attribution: 'Karta &copy; <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a>, HERE, Garmin, USGS, NGCC, &copy; OpenStreetMap-bidragsgivare m.fl.',
     });
   }
   const ikonGissning = L.divIcon({ className: 'markor-gissning', iconSize: [26, 26], iconAnchor: [13, 13] });
@@ -270,6 +328,36 @@
     laddaVy();
   }
 
+  // Väljer platserna till nästa omgång redan på startskärmen och förladdar den första,
+  // så att runda 1 inte börjar med en svart skärm
+  let forberedTimer = 0;
+  function forberedSpel(kartId) {
+    const karta = KARTOR.find(k => k.id === kartId) || KARTOR[0];
+    const ordning = ordnaPlatser(window.PLATSER.filter(karta.filter), karta);
+    S.forberett = { kartId: karta.id, ordning };
+    clearTimeout(forberedTimer);
+    // Vänta lite så att bakgrundsvyn hinner ladda först. Har spelaren hunnit gå vidare
+    // (till exempel in i ett rum med vänner) ska det rummets förladdning inte skrivas över.
+    forberedTimer = setTimeout(() => {
+      if ((S.lage === 'start' || S.lage === 'slut') && !S.multi && S.forberett && S.forberett.ordning === ordning) forladda(ordning[0]);
+    }, 2500);
+  }
+
+  // Nästa plats börjar laddas en stund in i rundan, när den aktuella vyn har hunnit ladda klart
+  let nastaTimer = 0;
+  function forladdaNasta() {
+    clearTimeout(nastaTimer);
+    nastaTimer = setTimeout(() => {
+      if (S.multi || (S.lage !== 'spel' && S.lage !== 'resultat')) return;
+      if (S.traning) {
+        if (!S.nastaPlats) S.nastaPlats = S.valjNasta();
+        forladda(S.nastaPlats);
+      } else if (S.rundor[S.nr + 1]) {
+        forladda(S.rundor[S.nr + 1].plats);
+      }
+    }, 3000);
+  }
+
   function startaSpel(kartId, tid) {
     const karta = KARTOR.find(k => k.id === kartId);
     const pool = window.PLATSER.filter(karta.filter);
@@ -278,7 +366,9 @@
     S.karta = { ...karta, pool };
     S.tid = tid;
     S.skala = skalaFor(karta, pool);
-    const ordning = ordnaPlatser(pool, karta);
+    const ordning = S.forberett && S.forberett.kartId === kartId ? S.forberett.ordning : ordnaPlatser(pool, karta);
+    S.forberett = null;
+    clearTimeout(forberedTimer);
     S.rundor = ordning.slice(0, RUNDOR).map(plats => ({ plats, gissning: null, km: null, poang: 0 }));
     S.reserv = ordning.slice(RUNDOR);
     S.nr = 0;
@@ -300,6 +390,7 @@
     S.tid = 0;
     S.skala = id === 'varlden' ? 1492.7 : skalaFor({ id }, pool);
     S.valjNasta = valjNasta;
+    S.nastaPlats = null;
     S.rundor = [{ plats: valjNasta(), gissning: null, km: null, poang: 0 }];
     S.nr = 0;
     visaLage('spel');
@@ -343,7 +434,7 @@
     $('hudTidRad').hidden = !S.tid;
     if (S.tid) $('hudTid').textContent = fmtTid(S.tid);
     satVy(S.rundor[S.nr].plats);
-    laddaVy(startaTimer);
+    laddaVy(() => { startaTimer(); forladdaNasta(); });
   }
 
   function uppdateraHud() {
@@ -492,7 +583,8 @@
     if (S.multi) { if (api.multiNasta) api.multiNasta(); return; }
     S.nr++;
     if (S.traning) {
-      S.rundor.push({ plats: S.valjNasta(), gissning: null, km: null, poang: 0 });
+      S.rundor.push({ plats: S.nastaPlats || S.valjNasta(), gissning: null, km: null, poang: 0 });
+      S.nastaPlats = null;
       startaRunda();
     } else if (S.nr < RUNDOR) {
       startaRunda();
@@ -556,6 +648,7 @@
       animate: false,
     });
     $('igenKnapp').focus({ preventScroll: true });
+    forberedSpel(S.karta.id);   // så att Spela igen börjar utan väntan
   }
 
   function omdome(summa) {
@@ -614,8 +707,11 @@
     visaLage('start');
     byggStart();
     bakgrundsvy();
+    forberedSpel(valdKartaPaStart());
     document.dispatchEvent(new Event('vilse:meny'));
   }
+
+  const valdKartaPaStart = () => document.querySelector('input[name="karta"]:checked')?.value || 'varlden';
 
   // ---------- Händelser ----------
   $('startKnapp').addEventListener('click', () => {
@@ -686,7 +782,7 @@
   Object.assign(api, {
     S, $, nf, las, spara, blanda, avstandKm, fmtAvstand, reduceraRorelse, mobil,
     satVy, laddaVy, kartlager, ikonFacit, visaLage, tillMeny, startaFriTraning,
-    KARTOR, RUNDOR, valjPlatser, skalaForKarta, poangFor, raknaUpp,
+    KARTOR, RUNDOR, valjPlatser, skalaForKarta, poangFor, raknaUpp, forladda,
     startaMultiRunda, visaMultiResultat, visaMultiSlut, bakgrundsvy,
     // Sätts av multi.js:
     multiGissa: null,     // (gissning eller null) => skickar gissningen till värden
@@ -701,4 +797,6 @@
   byggStart();
   visaLage('start');
   bakgrundsvy();
+  forberedSpel(valdKartaPaStart());
+  $('kartval').addEventListener('change', e => { if (e.target.name === 'karta') forberedSpel(e.target.value); });
 })();

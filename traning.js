@@ -73,6 +73,7 @@
     omrade: OMRADEN[0],
     niva: 'svar',
     egnaLander: null,     // satt när man tränar på ett land och dess förväxlingar från biblioteket
+    nasta: null,          // { land, plats } för nästa runda, vald i förväg så att den kan förladdas
     land: null,
     plats: null,
     alternativ: [],
@@ -179,14 +180,21 @@
 
   // ---------- Övningen Vilket land? ----------
   function startaLand() {
-    Object.assign(T, { nr: 0, ratt: 0, totalt: 0, iRad: 0, land: null });
+    Object.assign(T, { nr: 0, ratt: 0, totalt: 0, iRad: 0, land: null, nasta: null });
     V.visaLage('land');
     nyLandRunda();
   }
 
   function nyLandRunda() {
-    T.land = valjLand();
-    T.plats = valjPlats(T.land);
+    // Nästa plats är oftast redan vald och förladdad medan förra svaret visades
+    if (T.nasta) {
+      T.land = T.nasta.land;
+      T.plats = T.nasta.plats;
+      T.nasta = null;
+    } else {
+      T.land = valjLand();
+      T.plats = valjPlats(T.land);
+    }
     T.alternativ = skapaAlternativ(T.land);
     T.ledtradar = 0;
     T.jamfort = false;
@@ -268,6 +276,11 @@
       T.iRad = 0;
     }
     registrera(T.land, gissat, T.iRad);
+
+    // Välj nästa plats nu och ladda den i bakgrunden medan svaret läses
+    const nastaLand = valjLand();
+    T.nasta = { land: nastaLand, plats: valjPlats(nastaLand) };
+    V.forladda(T.nasta.plats);
 
     $('landVal').querySelectorAll('.land-alt').forEach(b => {
       b.disabled = true;

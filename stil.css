@@ -52,6 +52,8 @@ button { font: inherit; color: inherit; }
   height: calc(100% + var(--vy-forskjutning));
   border: 0;
 }
+/* Nästa plats laddar osynligt under den som visas, så att den kan visas direkt */
+.vy-ram iframe.forladdad { opacity: 0; pointer-events: none; }
 body[data-lage="start"] .vy-ram,
 body[data-lage="lobby"] .vy-ram { filter: blur(7px) saturate(1.15); transform: scale(1.06); pointer-events: none; }
 .vy-laddar {
