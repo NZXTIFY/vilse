@@ -453,15 +453,60 @@
       const kvar = Math.max(0, S.slutTid - performance.now());
       $('hudTid').textContent = fmtTid(Math.ceil(kvar / 1000));
       $('hudTidRad').classList.toggle('bratt', kvar <= 10000);
+      uppdateraVarning(kvar);
       if (kvar <= 0) { stoppaTimer(); gissa(); }
     };
-    tick();
     S.timer = setInterval(tick, 200);
+    tick();
   }
   function stoppaTimer() {
     clearInterval(S.timer);
     S.timer = 0;
     $('hudTidRad').classList.remove('bratt');
+    stoppaVarning();
+  }
+
+  // ---------- Tidsvarning ----------
+  // De sista 20 sekunderna pulserar en röd ram runt skärmen: svagt och långsamt först,
+  // starkare och snabbare ju närmare noll. Timern sätter alltid ramens styrka, och pulsen ritas
+  // ovanpå varje bildruta så att takten kan öka mjukt. Ritar webbläsaren inga bildrutor
+  // (till exempel när den sparar ström) syns ramen ändå, fast utan puls.
+  const VARNING_MS = 20000;
+  let varningRaf = 0, varningFas = 0, varningSenast = 0;
+  const varningsStyrka = kvar => 1 - Math.max(0, kvar) / VARNING_MS;   // 0 vid 20 sekunder kvar, 1 vid 0
+
+  function uppdateraVarning(kvar) {
+    if (kvar > VARNING_MS) { stoppaVarning(); return; }
+    const el = $('tidVarning');
+    const styrka = varningsStyrka(kvar);
+    el.style.setProperty('--styrka', styrka.toFixed(3));
+    el.hidden = false;
+    if (performance.now() - varningSenast > 300) el.style.opacity = (0.2 + 0.8 * styrka).toFixed(3);
+    if (!varningRaf) varningRaf = requestAnimationFrame(ritaVarning);
+  }
+
+  function ritaVarning(nu) {
+    varningRaf = 0;
+    if (!S.timer || S.lage !== 'spel') { stoppaVarning(); return; }
+    const styrka = varningsStyrka(S.slutTid - nu);
+    const dt = varningSenast && nu - varningSenast < 300 ? (nu - varningSenast) / 1000 : 0;
+    varningSenast = nu;
+    varningFas = (varningFas + dt * (0.6 + 2 * styrka)) % 1;   // 0,6 pulser per sekund i början, 2,6 på slutet
+    const puls = reduceraRorelse ? 1 : 0.5 - 0.5 * Math.cos(varningFas * 2 * Math.PI);
+    const el = $('tidVarning');
+    el.style.setProperty('--styrka', styrka.toFixed(3));
+    el.style.opacity = ((0.2 + 0.8 * styrka) * (0.3 + 0.7 * puls)).toFixed(3);
+    varningRaf = requestAnimationFrame(ritaVarning);
+  }
+
+  function stoppaVarning() {
+    cancelAnimationFrame(varningRaf);
+    varningRaf = 0;
+    varningFas = 0;
+    varningSenast = 0;
+    const el = $('tidVarning');
+    el.hidden = true;
+    el.style.opacity = '0';
   }
 
   // ---------- Gissning och resultat ----------

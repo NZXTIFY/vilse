@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="stil.css?v=14">
+<link rel="stylesheet" href="stil.css?v=17">
 </head>
 <body data-lage="start">
 
@@ -122,6 +122,9 @@
 </section>
 
 <!-- Spelets överdel -->
+<!-- Röd ram som pulserar de sista 20 sekunderna av en runda -->
+<div id="tidVarning" class="tid-varning" aria-hidden="true" hidden></div>
+
 <header id="hud" class="hud" hidden>
   <div class="hud-vanster">
     <span class="ordmarke ordmarke-liten"><span class="skarm" aria-hidden="true"></span>Vilse</span>
@@ -297,11 +300,11 @@
 </section>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="platser.js?v=14"></script>
-<script src="ledtradar.js?v=14"></script>
-<script src="spel.js?v=14"></script>
-<script src="traning.js?v=14"></script>
+<script src="platser.js?v=17"></script>
+<script src="ledtradar.js?v=17"></script>
+<script src="spel.js?v=17"></script>
+<script src="traning.js?v=17"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="multi.js?v=14"></script>
+<script src="multi.js?v=17"></script>
 </body>
 </html>
