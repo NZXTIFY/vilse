@@ -54,7 +54,7 @@
   // så att det lönar sig att zooma in. Inom 150 meter från arenans mitt är mitt i prick.
   function poangHemma(km) {
     if (km <= 0.15) return MAXPOANG;
-    return Math.round(MAXPOANG * (0.5 * Math.exp(-km / 8) + 0.5 * Math.exp(-km / 400)));
+    return Math.round(MAXPOANG * (0.5 * Math.exp(-km / 15) + 0.5 * Math.exp(-km / 500)));
   }
 
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

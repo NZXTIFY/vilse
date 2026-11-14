@@ -28,7 +28,7 @@ Det går oftast också att dubbelklicka på `index.html`.
 ## Hemmaplan
 
 - Du får se ett klubbmärke och sätter nålen på klubbens hemmaarena. Kartan är stor, eftersom du behöver zooma in ända till arenan.
-- **Poäng:** hälften för rätt trakt och hälften för att pricka arenan, `5000 · (0,5 · e^(−km/8) + 0,5 · e^(−km/400))`. Inom 150 meter från arenans mitt ger full poäng. Rätt stad men fel stadsdel ger alltså drygt halva poängen.
+- **Poäng:** hälften för rätt trakt och hälften för att pricka arenan, `5000 · (0,5 · e^(−km/15) + 0,5 · e^(−km/500))`. Inom 150 meter från arenans mitt ger full poäng. Rätt stad men fel stadsdel ger runt 4 000 poäng.
 - **Visa klubbens namn** hjälper dig när du inte känner igen märket, men halverar rundans poäng.
 - Fyra urval: Storklubbar (77 handplockade), Hela världen, Norden och Sverige. Rekord sparas per urval.
 - **Klubbarna** finns i `klubbar.js` (308 st): `[klubb, hemmaarena, lat, lng, land, region, logga, stor]`. Klubbar, arenor och koordinater kommer från [Wikidata](https://www.wikidata.org/) (CC0).
