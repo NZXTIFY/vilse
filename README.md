@@ -2,7 +2,7 @@
 
 Ett geografispel i stil med GeoGuessr. Du hamnar på en slumpad plats i Google Street View, ser dig omkring och sätter ut en nål på kartan där du tror att du är. Fem rundor, högst 5 000 poäng per runda.
 
-Fliken **Träna** på startskärmen lär dig känna igen länder med ledtrådar från [Plonk It](https://www.plonkit.net/guide).
+Fliken **Hemmaplan** visar ett klubbmärke, och du ska sätta nålen på klubbens hemmaarena. Fliken **Träna** lär dig känna igen länder med ledtrådar från [Plonk It](https://www.plonkit.net/guide).
 
 **Spela: https://nzxtify.github.io/vilse/**
 
@@ -22,8 +22,18 @@ Det går oftast också att dubbelklicka på `index.html`.
 - **Kartorna** använder Leaflet med Esris gatukarta (World Street Map), som har ortnamn med latinska bokstäver i hela världen.
 - **Förladdning:** nästa plats laddas i en osynlig ram medan du tittar på förra resultatet (och runda 1 redan på startskärmen), så att rundan inte börjar med en svart skärm. I rum med vänner skickar värden nästa plats i förväg till alla.
 - **Poäng** räknas som i GeoGuessr: `5000 · e^(−10 · avstånd / kartans diagonal)`.
-- **Platserna** finns i `platser.js` (638 st i 95 länder och områden). Varje punkt ligger på en bilväg så att Googles egna gatubilder visas i stället för användarnas inomhusfoton.
+- **Platserna** finns i `platser.js` (634 st i 95 länder och områden). Varje punkt ligger på en bilväg och är kontrollerad med `verktyg/agare.html`, så att Googles egna gatubilder visas i stället för användarnas flygbilder och inomhusfoton.
 - Rekord, träningsstatistik och senast spelade platser sparas i webbläsarens `localStorage`.
+
+## Hemmaplan
+
+- Du får se ett klubbmärke och sätter nålen på klubbens hemmaarena. Kartan är stor, eftersom du behöver zooma in ända till arenan.
+- **Poäng:** hälften för rätt trakt och hälften för att pricka arenan, `5000 · (0,5 · e^(−km/8) + 0,5 · e^(−km/400))`. Inom 150 meter från arenans mitt ger full poäng. Rätt stad men fel stadsdel ger alltså drygt halva poängen.
+- **Visa klubbens namn** hjälper dig när du inte känner igen märket, men halverar rundans poäng.
+- Fyra urval: Storklubbar (77 handplockade), Hela världen, Norden och Sverige. Rekord sparas per urval.
+- **Klubbarna** finns i `klubbar.js` (308 st): `[klubb, hemmaarena, lat, lng, land, region, logga, stor]`. Klubbar, arenor och koordinater kommer från [Wikidata](https://www.wikidata.org/) (CC0).
+- **Märkena** hämtas direkt från [Wikimedia Commons](https://commons.wikimedia.org/) när de finns där som fria bilder (142 klubbar). Övriga klubbars märken är upphovsrättsskyddade och hämtas från klubbens artikel på engelska Wikipedia, där de används som lågupplösta bilder ("fair use"). Resultatkortet länkar till bildens sida. Går ett märke inte att ladda visas klubbens namn i en sköld i stället.
+- Lägg till en klubb genom att skriva en ny rad i `klubbar.js`. `logga` är filnamnet på Commons (utan `File:`), `en:filnamn` för en bild på engelska Wikipedia, eller tomt.
 
 ## Träningsläget
 
@@ -64,9 +74,11 @@ Plonk Its bilder används inte. Varje land länkar i stället till sin sida på 
 
 ## Verktyg
 
+- `verktyg/agare.html?from=0&n=21&h=70` visar vem som äger gatubilden på varje plats. Längst ned i varje ruta ska det stå "© Google". Står det ett namn eller bara "Kartdata" är bilden uppladdad av en användare (ofta en flygbild eller ett inomhusfoto), och då ska platsen flyttas. `?punkter=lat,lng,Namn;lat,lng,Namn` provar fria punkter innan du flyttar dit.
+- `verktyg/loggor.html` visar alla klubbmärken i Hemmaplan, och `?utan=1` klubbarna som saknar märke.
 - `verktyg/kontroll.html?from=0&n=15` visar 15 platser i ett rutnät så att du kan se vilka som saknar bild. `?orter=Umeå,Falun` visar bara de namngivna, och `?idx=12,40` platserna med de numren.
 - `node verktyg/lagg-till.mjs nya.json` lägger till nya platser och flyttar dem till närmaste väg. Formatet är `[lat, lng, "Ort", "Land", "region"]`, med ett valfritt sjätte fält för träningsland (till exempel `"Hongkong"`).
 - `node verktyg/flytta.mjs "Umeå=63.83,20.24"` ger en plats ny startpunkt och flyttar den till närmaste väg. `"Ort=bort"` tar bort platsen.
 - `node verktyg/snappa.mjs` flyttar alla platser till närmaste väg (OSRM).
 
-Om en plats visar svart bild i spelet: tryck **Byt plats**.
+Om en plats visar svart bild i spelet: tryck **Byt plats**. Användare laddar hela tiden upp nya bilder till Google Maps, så en plats som var bra kan senare börja visa någon annans foto. Kör då `verktyg/agare.html` igen.

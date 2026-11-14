@@ -1,0 +1,28 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Klubbmärken</title>
+<!--
+  Visar klubbmärkena till Hemmaplan, så att man kan se om något saknas, inte laddar eller är fel bild.
+
+  ?from=0&n=60     klubbarna 0–59 bland dem som har en logga
+  ?utan=1          klubbarna som saknar logga (visas med namn i spelet)
+-->
+<style>
+  body { margin: 0; padding: 6px; background: #fff; font: 11px/1.2 system-ui; }
+  #grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+  .cell { border: 1px solid #ccc; padding: 3px; text-align: center; overflow: hidden; }
+  .cell img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; }
+  .cell.fel { background: #fbb; }
+  .cell b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+<div id="grid"></div>
+<script>document.write(`<script src="../klubbar.js?t=${Date.now()}"><` + `/script>`);</script>
+<script>
+  const p = new URLSearchParams(location.search);
+  const from = +(p.get('from') || 0), n = +(p.get('n') || 60);
+  const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const lista = p.get('utan') ? KLUBBAR.filter(k => !k[6]) : KLUBBAR.filter(k => k[6]).slice(from, from + n);
+  document.getElementById('grid').innerHTML = lista.map((k, i) => k[6]
+    ? `<div class="cell"><img src="${k[6].startsWith('en:') ? 'https://en.wikipedia.org' : 'https://commons.wikimedia.org'}/wiki/Special:FilePath/${encodeURIComponent(k[6].replace(/^en:/, ''))}?width=160" alt="" onerror="this.parentNode.classList.add('fel')"><b>${from + i} ${esc(k[0])}</b></div>`
+    : `<div class="cell"><b>${esc(k[0])}</b>${esc(k[4])}</div>`).join('');
+</script>

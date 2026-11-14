@@ -547,6 +547,52 @@ body[data-lage="lobby"] .vy-ram { filter: blur(7px) saturate(1.15); transform: s
   box-shadow: 0 0 0 1.5px #fff, 0 2px 6px rgba(0, 0, 0, .35);
 }
 
+/* ---------- Hemmaplan ---------- */
+/* Klubbmärket ligger i en papperspanel till vänster och kartan fyller resten av skärmen, eftersom man
+   behöver zooma in ända till arenan. På mobil visas märket först, och kartan öppnas ovanpå som vanligt. */
+body.hemma .vy { display: none; }
+.klubb {
+  position: fixed; z-index: 15;
+  left: 16px; top: 76px; bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  width: min(34vw, 400px);
+  display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; justify-items: center; gap: 14px;
+  padding: 28px 24px; text-align: center;
+  background: var(--papper); border-radius: var(--radie); box-shadow: var(--skugga);
+  overflow: hidden auto;
+}
+.klubb-logga { width: min(100%, 280px, 32vh); aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+.klubb-logga img { display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; object-fit: contain; }
+.klubb-namn { margin: 0; font: 800 34px/1 var(--font-rubrik); text-wrap: balance; }
+.klubb-fraga { margin: 0; font: 700 24px/1.15 var(--font-rubrik); text-wrap: balance; }
+.klubb .etikett { max-width: 30ch; min-height: 2.9em; text-wrap: pretty; }
+/* Klubbar utan fritt märke: namnet i en sköld med banans färg */
+.skold { position: relative; width: 84%; aspect-ratio: 5 / 6; display: grid; place-items: center; }
+.skold svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.skold path { fill: var(--kort-ljus); stroke: var(--bana); stroke-width: 3; stroke-linejoin: round; }
+.skold span {
+  position: relative; padding: 0 14% 14%;
+  font: 800 clamp(22px, 2.5vw, 32px)/1.04 var(--font-rubrik); letter-spacing: .01em; text-transform: uppercase;
+  text-wrap: balance; overflow-wrap: anywhere;
+}
+@media (min-width: 721px) {
+  body.hemma .giss, body.hemma .giss:hover, body.hemma .giss.har-fokus {
+    left: calc(32px + min(34vw, 400px)); right: 16px; top: 76px; bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    width: auto; transition: none;
+  }
+  body.hemma .giss .giss-karta { flex: 1; height: auto; opacity: 1; transition: none; }
+}
+/* Låga fönster: mindre luft, så att märket och knappen ryms utan att rulla */
+@media (max-height: 620px) {
+  .klubb { padding: 14px 16px; gap: 8px; }
+  .klubb-fraga { font-size: 20px; }
+  .klubb .etikett { min-height: 0; }
+}
+/* Klubben på resultatkortet */
+.rund-klubb { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.rund-klubb img { flex: none; width: 48px; height: 48px; object-fit: contain; }
+.rund-klubb strong { min-width: 0; font: 800 28px/1 var(--font-rubrik); overflow-wrap: anywhere; }
+.rund-klubb a { margin-left: auto; flex: none; font-size: 12px; color: var(--tryck-2); }
+
 /* ---------- Mobil ---------- */
 @media (max-width: 720px) {
   .start { padding-block: 16px; align-items: start; background: rgba(10, 12, 14, .55); }
@@ -589,9 +635,19 @@ body[data-lage="lobby"] .vy-ram { filter: blur(7px) saturate(1.15); transform: s
   .slut-kort { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; max-height: 64%; padding: 18px; }
   .slut-summa { font-size: 48px; }
 
+  /* Hemmaplan */
+  .klubb { left: 10px; right: 10px; width: auto; top: 104px; bottom: calc(108px + env(safe-area-inset-bottom, 0px)); padding: 16px; gap: 10px; }
+  .klubb-logga { width: min(64%, 240px); }
+  .klubb-namn { font-size: 28px; }
+  .klubb-fraga { font-size: 21px; }
+  .skold span { font-size: clamp(20px, 6.4vw, 30px); }
+  .rund-klubb strong { font-size: 24px; }
+  .rund-klubb img { width: 40px; height: 40px; }
+  body.hemma .oppna-karta { right: 10px; }   /* ingen gatuvy vars knappar ska få plats bredvid */
+
   /* Med vänner */
-  .flikar { gap: 18px; }
-  .flik { font-size: 19px; }
+  .flikar { gap: 13px; }
+  .flik { font-size: 17px; letter-spacing: .02em; white-space: nowrap; }
   .rumskod { font-size: 56px; }
 
   /* Träning */

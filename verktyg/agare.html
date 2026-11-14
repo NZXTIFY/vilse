@@ -1,0 +1,49 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Bildägare</title>
+<!--
+  Visar vem som äger gatubilden på varje plats. Längst ned till höger i varje vy står
+  "© Google" för Googles egna gatubilder, eller ett namn om bilden är uppladdad av en användare
+  (ofta flygbilder, inomhusbilder eller enstaka 360-foton). Platserna i spelet ska ha Googles egna.
+
+  ?from=0&n=20          platserna 0–19 i platser.js
+  ?idx=12,40,41         platserna med de numren
+  ?punkter=59.3,18.0,Namn;57.7,11.9,Namn   fria punkter, till exempel kandidater till en ny plats
+  ?kand=fil.json&sida=0 kandidater från en fil: [{ "idx": 14, "ort": "Kiruna", "c": [[lat, lng], …] }, …],
+                        en plats per rad med tre kandidater (a, b, c) och åtta platser per sida
+  &h=95                 höjden på varje vy i pixlar
+  &kol=3                antal kolumner (ägarraden behöver ungefär 330 pixlars bredd)
+-->
+<style>
+  body { margin: 0; background: #fff; font: 11px/14px system-ui; }
+  #grid { display: grid; grid-template-columns: repeat(var(--kol), var(--bredd)); }
+  .cell b { display: block; height: 14px; padding: 0 4px; background: #ff0; overflow: hidden; white-space: nowrap; }
+  .cell iframe { display: block; width: var(--bredd); border: 0; }
+</style>
+<div id="grid"></div>
+<!-- Tidsstämpeln gör att webbläsaren alltid hämtar den senaste platslistan -->
+<script>document.write(`<script src="../platser.js?t=${Date.now()}"><` + `/script>`);</script>
+<script>
+  const p = new URLSearchParams(location.search);
+  const h = +(p.get('h') || 95), kol = +(p.get('kol') || 3);
+  document.documentElement.style.setProperty('--kol', kol);
+  document.documentElement.style.setProperty('--bredd', Math.floor(innerWidth / kol) + 'px');
+  (async () => {
+    let urval;
+    if (p.get('kand')) {
+      const alla = await (await fetch(p.get('kand'))).json();
+      const per = +(p.get('per') || 8), sida = +(p.get('sida') || 0);
+      urval = alla.slice(sida * per, (sida + 1) * per).flatMap(pl =>
+        [0, 1, 2].map(j => [[...(pl.c[j] || [0, 0]).slice(0, 2), pl.c[j] ? pl.ort : 'saknas'], `${pl.idx}${'abc'[j]}`]));
+    } else if (p.get('punkter')) {
+      urval = p.get('punkter').split(';').map((s, i) => { const [lat, lng, namn] = s.split(','); return [[+lat, +lng, namn || ''], `k${i}`]; });
+    } else if (p.get('idx')) {
+      urval = p.get('idx').split(',').map(i => [PLATSER[+i], +i]);
+    } else {
+      const from = +(p.get('from') || 0), n = +(p.get('n') || 20);
+      urval = PLATSER.slice(from, from + n).map((pl, i) => [pl, from + i]);
+    }
+    document.getElementById('grid').innerHTML = urval.map(([[lat, lng, ort, land], nr]) =>
+      `<div class="cell"><b>${nr} ${ort}${land ? ', ' + land : ''}</b><iframe style="height:${h}px" src="https://maps.google.com/maps?layer=c&cbll=${lat},${lng}&cbp=12,0,0,0,0&output=svembed"></iframe></div>`).join('');
+  })();
+</script>

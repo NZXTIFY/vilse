@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="stil.css?v=17">
+<link rel="stylesheet" href="stil.css?v=25">
 </head>
 <body data-lage="start">
 
@@ -27,6 +27,7 @@
 
     <div class="flikar" role="tablist" aria-label="Läge">
       <button id="flikKnappSpela" class="flik" role="tab" aria-selected="true" aria-controls="flikSpela" type="button">Spela</button>
+      <button id="flikKnappHemma" class="flik" role="tab" aria-selected="false" aria-controls="flikHemma" type="button">Hemmaplan</button>
       <button id="flikKnappTrana" class="flik" role="tab" aria-selected="false" aria-controls="flikTrana" type="button">Träna</button>
       <button id="flikKnappMulti" class="flik" role="tab" aria-selected="false" aria-controls="flikMulti" type="button">Med vänner</button>
     </div>
@@ -44,6 +45,22 @@
 
       <button id="startKnapp" class="knapp knapp-bana knapp-stor" type="button">Starta</button>
       <p class="regler">5 rundor · högst 5 000 poäng per runda</p>
+    </div>
+
+    <div id="flikHemma" class="flikinnehall" role="tabpanel" aria-labelledby="flikKnappHemma" hidden>
+      <p class="ingress-liten">Du får se ett klubbmärke. Sätt nålen på klubbens hemmaarena, så nära mittcirkeln du kan. Rätt trakt ger upp till halva poängen, resten får du för att pricka arenan.</p>
+      <fieldset class="val">
+        <legend>Klubbar</legend>
+        <div id="hemmaUrval" class="kartval"></div>
+      </fieldset>
+
+      <fieldset class="val">
+        <legend>Tid per runda</legend>
+        <div id="hemmaTid" class="tidval"></div>
+      </fieldset>
+
+      <button id="hemmaStart" class="knapp knapp-bana knapp-stor" type="button">Starta</button>
+      <p class="regler">5 rundor · högst 5 000 poäng per runda · märken från <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a> och <a href="https://en.wikipedia.org/" target="_blank" rel="noopener">Wikipedia</a></p>
     </div>
 
     <div id="flikTrana" class="flikinnehall" role="tabpanel" aria-labelledby="flikKnappTrana" hidden>
@@ -131,7 +148,7 @@
     <button id="avsluta" class="knapp knapp-papper knapp-liten" type="button">Avsluta</button>
   </div>
   <dl id="hudSpel" class="hud-stat">
-    <div class="stat-karta"><dt>Karta</dt><dd id="hudKarta"></dd></div>
+    <div class="stat-karta"><dt id="hudKartaEtikett">Karta</dt><dd id="hudKarta"></dd></div>
     <div><dt id="hudRundaEtikett">Runda</dt><dd id="hudRunda"></dd></div>
     <div><dt>Poäng</dt><dd id="hudPoang"></dd></div>
     <div id="hudGissatRad" hidden><dt>Gissat</dt><dd id="hudGissat"></dd></div>
@@ -164,10 +181,20 @@
   </button>
 </div>
 
+<!-- Hemmaplan: klubbmärket vars hemmaarena ska hittas på kartan -->
+<div id="klubbPanel" class="klubb" hidden>
+  <p class="overrad">Vems hemmaplan?</p>
+  <div id="klubbLogga" class="klubb-logga"></div>
+  <p id="klubbNamn" class="klubb-namn" hidden></p>
+  <p class="klubb-fraga">Sätt nålen på klubbens hemmaarena</p>
+  <button id="klubbVisaNamn" class="knapp knapp-papper knapp-liten" type="button">Visa klubbens namn (halva poängen)</button>
+  <p id="klubbInfo" class="etikett" aria-live="polite"></p>
+</div>
+
 <!-- Gissningskartan -->
 <div id="giss" class="giss" hidden>
   <div class="giss-topp">
-    <strong>Var är du?</strong>
+    <strong id="gissRubrik">Var är du?</strong>
     <button id="stangKarta" class="knapp knapp-papper knapp-liten" type="button">Tillbaka till vyn</button>
   </div>
   <div id="gissKarta" class="giss-karta"></div>
@@ -250,6 +277,7 @@
 
   <div id="rundKort" class="kort rund-kort" hidden>
     <p class="overrad" id="rundNr"></p>
+    <div id="rundKlubb" class="rund-klubb" hidden></div>
     <div class="rund-siffror">
       <div>
         <p class="stor-siffra" id="rundAvstand"></p>
@@ -257,11 +285,11 @@
       </div>
       <div class="hoger">
         <p class="stor-siffra" id="rundPoang"></p>
-        <p class="etikett">poäng</p>
+        <p class="etikett" id="rundPoangText">poäng</p>
       </div>
     </div>
     <div class="stapel" aria-hidden="true"><i id="rundStapel"></i></div>
-    <p class="platsnamn">Platsen: <strong id="rundPlats"></strong></p>
+    <p class="platsnamn"><span id="rundPlatsEtikett">Platsen:</span> <strong id="rundPlats"></strong></p>
     <div id="rundLedtradar" class="ledtradar" hidden></div>
     <button id="nastaKnapp" class="knapp knapp-bana knapp-stor" type="button">Nästa runda</button>
   </div>
@@ -300,11 +328,13 @@
 </section>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="platser.js?v=17"></script>
-<script src="ledtradar.js?v=17"></script>
-<script src="spel.js?v=17"></script>
-<script src="traning.js?v=17"></script>
+<script src="platser.js?v=25"></script>
+<script src="ledtradar.js?v=25"></script>
+<script src="spel.js?v=25"></script>
+<script src="traning.js?v=25"></script>
+<script src="klubbar.js?v=25"></script>
+<script src="hemmaplan.js?v=25"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="multi.js?v=17"></script>
+<script src="multi.js?v=25"></script>
 </body>
 </html>

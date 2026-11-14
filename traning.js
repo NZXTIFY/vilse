@@ -124,7 +124,10 @@
     spara('vilse.traningVal', { ovning: T.ovning, omrade: T.omrade.id, niva: T.niva });
   }
 
-  const FLIKAR = { spela: ['flikSpela', 'flikKnappSpela'], trana: ['flikTrana', 'flikKnappTrana'], multi: ['flikMulti', 'flikKnappMulti'] };
+  const FLIKAR = {
+    spela: ['flikSpela', 'flikKnappSpela'], hemma: ['flikHemma', 'flikKnappHemma'],
+    trana: ['flikTrana', 'flikKnappTrana'], multi: ['flikMulti', 'flikKnappMulti'],
+  };
   function visaFlik(namn) {
     if (!FLIKAR[namn]) namn = 'spela';
     for (const [flik, [panel, knapp]] of Object.entries(FLIKAR)) {
@@ -510,6 +513,7 @@
 
   // ---------- Händelser ----------
   $('flikKnappSpela').addEventListener('click', () => visaFlik('spela'));
+  $('flikKnappHemma').addEventListener('click', () => visaFlik('hemma'));
   $('flikKnappTrana').addEventListener('click', () => visaFlik('trana'));
   $('flikKnappMulti').addEventListener('click', () => visaFlik('multi'));
   $('flikTrana').addEventListener('change', e => {
