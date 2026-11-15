@@ -50,11 +50,13 @@
     return Math.round(MAXPOANG * Math.exp(-km / skala));
   }
 
-  // Hemmaplan: halva poängen för rätt trakt (flack kurva) och halva för att pricka arenan (brant kurva),
-  // så att det lönar sig att zooma in. Inom 150 meter från arenans mitt är mitt i prick.
+  // Quizlägena (quiz.js): halva poängen för rätt trakt (flack kurva) och halva för att pricka platsen (brant kurva),
+  // så att det lönar sig att zooma in. Varje läge har sina egna mått, till exempel 150 meter för en arena
+  // och en mil för en stad.
   function poangHemma(km) {
-    if (km <= 0.15) return MAXPOANG;
-    return Math.round(MAXPOANG * (0.5 * Math.exp(-km / 15) + 0.5 * Math.exp(-km / 500)));
+    const { full, a, b } = S.karta.quiz.poang;
+    if (km <= full) return MAXPOANG;
+    return Math.round(MAXPOANG * (0.5 * Math.exp(-km / a) + 0.5 * Math.exp(-km / b)));
   }
 
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -109,7 +111,7 @@
     multiGissat: false,  // har skickat sin gissning och väntar på de andra
     multiAntal: 0,
     multiTotal: 0,
-    hemma: false,        // Hemmaplan: ett klubbmärke i stället för gatuvyn (hemmaplan.js)
+    hemma: false,        // quizläge: en fråga (märke eller text) i stället för gatuvyn (quiz.js)
     forberett: null,     // { kartId, ordning }: platserna till nästa omgång, valda i förväg för förladdning
     nastaPlats: null,    // nästa plats i fri träning, vald i förväg för förladdning
   };
@@ -292,15 +294,15 @@
     const spel = lage === 'spel', land = lage === 'land';
     document.body.classList.toggle('hemma', S.hemma && lage !== 'start' && lage !== 'lobby');
     $('klubbPanel').hidden = !(spel && S.hemma);
-    $('gissRubrik').textContent = S.hemma ? 'Var ligger arenan?' : 'Var är du?';
-    $('stangKarta').textContent = S.hemma ? 'Tillbaka till märket' : 'Tillbaka till vyn';
+    $('gissRubrik').textContent = S.hemma ? S.karta.quiz.karta : 'Var är du?';
+    $('stangKarta').textContent = S.hemma ? 'Tillbaka till frågan' : 'Tillbaka till vyn';
     $('start').hidden = lage !== 'start';
     $('lobby').hidden = lage !== 'lobby';
     $('hud').hidden = !(spel || land);
     $('hudSpel').hidden = land;
     $('hudTraning').hidden = !land;
     $('hudGissatRad').hidden = !S.multi;
-    $('verktyg').hidden = !(spel || land) || S.hemma;   // i Hemmaplan finns ingen gatuvy att gå tillbaka i
+    $('verktyg').hidden = !(spel || land) || S.hemma;   // i quizlägena finns ingen gatuvy att gå tillbaka i
     $('bytPlats').hidden = S.multi;   // alla i rummet ska se samma plats
     $('giss').hidden = !spel;
     $('oppnaKarta').hidden = !spel;
@@ -447,13 +449,14 @@
     if (kvarMs) startaTimer(kvarMs);
   }
 
-  // Hemmaplan (hemmaplan.js): samma rundor, karta och resultat som i vanligt spel, men ett klubbmärke
-  // i stället för gatuvyn. Varje runda har platsen [lat, lng, arena, land] och klubben den hör till.
-  function startaHemma({ id, namn, vy, tid, rundor }) {
+  // Quizlägena (quiz.js): samma rundor, karta och resultat som i vanligt spel, men en fråga i stället för
+  // gatuvyn. Varje runda har platsen [lat, lng, svar, land] och frågan den hör till (klubb).
+  // quiz: lägets poängmått, texter och omdömen.
+  function startaHemma({ id, namn, vy, tid, quiz, rundor }) {
     S.traning = false;
     S.multi = false;
     S.hemma = true;
-    S.karta = { id, namn, vy, pool: rundor.map(r => r.plats) };
+    S.karta = { id, namn, vy, quiz, pool: rundor.map(r => r.plats) };
     S.tid = tid;
     S.rundor = rundor.map(r => ({ ...r, gissning: null, km: null, poang: 0 }));
     S.reserv = [];
@@ -490,7 +493,7 @@
   }
 
   function uppdateraHud() {
-    $('hudKartaEtikett').textContent = S.hemma ? 'Hemmaplan' : 'Karta';
+    $('hudKartaEtikett').textContent = S.hemma ? S.karta.quiz.etikett : 'Karta';
     $('hudKarta').textContent = S.karta.namn;
     $('hudRundaEtikett').textContent = S.traning ? 'Plats' : 'Runda';
     $('hudRunda').textContent = S.traning ? `${S.nr + 1}` : `${S.nr + 1} / ${S.multi ? S.multiAntal : RUNDOR}`;
@@ -582,7 +585,7 @@
     if (S.gissning) {
       runda.gissning = { lat: S.gissning.lat, lng: S.gissning.lng };
       runda.km = avstandKm(S.gissning.lat, S.gissning.lng, lat, lng);
-      // Den som har tagit hjälp av klubbens namn i Hemmaplan får halva poängen
+      // Den som har tagit hjälp av ledtråden i ett quizläge får halva poängen
       runda.poang = S.hemma ? Math.round(poangHemma(runda.km) * (runda.namnVisat ? 0.5 : 1)) : poangFor(runda.km, S.skala);
     }
     visaRundresultat(runda);
@@ -598,14 +601,14 @@
     $('rundNr').textContent = S.traning ? `Träning · plats ${S.nr + 1}` : `Runda ${S.nr + 1} av ${RUNDOR}`;
     if (runda.gissning) {
       $('rundAvstand').textContent = fmtAvstand(runda.km);
-      $('rundAvstandText').textContent = S.hemma ? 'från arenan' : 'från rätt plats';
+      $('rundAvstandText').textContent = S.hemma ? S.karta.quiz.fran : 'från rätt plats';
     } else {
       $('rundAvstand').textContent = 'Ingen gissning';
       $('rundAvstandText').textContent = 'Tiden tog slut innan du gissade';
     }
-    $('rundPlatsEtikett').textContent = S.hemma ? 'Hemmaplan:' : 'Platsen:';
+    $('rundPlatsEtikett').textContent = S.hemma ? S.karta.quiz.svar : 'Platsen:';
     $('rundPlats').textContent = `${runda.plats[2]}, ${runda.plats[3]}`;
-    $('rundPoangText').textContent = S.hemma && runda.namnVisat && runda.gissning ? 'poäng (halverade, namnet visades)' : 'poäng';
+    $('rundPoangText').textContent = S.hemma && runda.namnVisat && runda.gissning ? 'poäng (halverade, ledtråd använd)' : 'poäng';
     $('rundKlubb').hidden = !S.hemma;
     if (S.hemma) api.fyllKlubbrad(runda, $('rundKlubb'));
     $('rundLedtradar').hidden = !S.traning;
@@ -630,7 +633,7 @@
       L.marker(g, { icon: ikonGissning, keyboard: false, interactive: false }).addTo(resLager);
       L.marker(f, { icon: ikonFacit, keyboard: false, interactive: false }).addTo(resLager);
     } else {
-      resKarta.setView([lat, lng], S.hemma ? 14 : 5, { animate: false });
+      resKarta.setView([lat, lng], S.hemma ? S.karta.quiz.zoom : 5, { animate: false });
       L.marker([lat, lng], { icon: ikonFacit, keyboard: false, interactive: false }).addTo(resLager);
     }
     $('nastaKnapp').focus({ preventScroll: true });
@@ -718,14 +721,14 @@
       }
     });
     const tid = TIDER.find(t => t.s === S.tid);
-    $('slutKarta').textContent = `${S.hemma ? 'Hemmaplan · ' : ''}${S.karta.namn} · ${tid.s ? `${tid.namn} per runda` : 'utan tidsgräns'}`;
+    $('slutKarta').textContent = `${S.hemma ? `${S.karta.quiz.etikett} · ` : ''}${S.karta.namn} · ${tid.s ? `${tid.namn} per runda` : 'utan tidsgräns'}`;
     raknaUpp($('slutPoang'), summa, 1300);
     fyllStapel($('slutStapel'), summa / (MAXPOANG * RUNDOR));
     $('slutOmdome').textContent = omdome(summa);
 
     const rekord = las('vilse.rekord', {});
     const tidigare = rekord[S.karta.id] || 0;
-    const har = S.hemma ? 'med de här klubbarna' : 'på den här kartan';
+    const har = S.hemma ? 'i det här läget' : 'på den här kartan';
     if (summa > tidigare) {
       rekord[S.karta.id] = summa;
       spara('vilse.rekord', rekord);
@@ -735,9 +738,9 @@
     } else {
       $('slutRekord').textContent = `Ditt rekord ${har}: ${nf.format(tidigare)}`;
     }
-    $('menyKnapp').textContent = S.hemma ? 'Välj klubbar' : 'Välj karta';
+    $('menyKnapp').textContent = S.hemma ? 'Välj läge' : 'Välj karta';
 
-    // I Hemmaplan står klubben först och arenan efter, annars orten och landet
+    // I quizlägena står frågan först och svaret efter, annars orten och landet
     $('slutLista').innerHTML = S.rundor.map((r, i) => `<li>
         <span class="nr">${i + 1}</span>
         <span class="ort">${esc(r.klubb ? r.klubb.namn : r.plats[2])} <small>${esc(r.klubb ? r.plats[2] : r.plats[3])}</small></span>
@@ -759,13 +762,7 @@
 
   function omdome(summa) {
     const andel = summa / (MAXPOANG * RUNDOR);
-    if (S.hemma) {
-      if (andel >= 0.92) return 'Du hittar till varje hemmaplan i sömnen.';
-      if (andel >= 0.75) return 'Van bortasupporter. Nästan alla arenor prickade.';
-      if (andel >= 0.5) return 'Rätt stad för det mesta, men arenorna gäckade dig.';
-      if (andel >= 0.25) return 'Ett par rätta trakter. Resten blev bortaplan.';
-      return 'Helt vilse på väg till matchen.';
-    }
+    if (S.hemma) return S.karta.quiz.omdomen[andel >= 0.92 ? 0 : andel >= 0.75 ? 1 : andel >= 0.5 ? 2 : andel >= 0.25 ? 3 : 4];
     if (andel >= 0.92) return 'Du hittar hem från var som helst.';
     if (andel >= 0.75) return 'Stark kartläsning. Nästan alla kontroller tagna.';
     if (andel >= 0.5) return 'Rätt världsdel för det mesta. Några felvägval.';
@@ -899,10 +896,10 @@
     KARTOR, RUNDOR, valjPlatser, skalaForKarta, poangFor, raknaUpp, forladda,
     startaMultiRunda, visaMultiResultat, visaMultiSlut, bakgrundsvy,
     TIDER, esc, startaHemma,
-    // Sätts av hemmaplan.js:
-    visaKlubb: null,      // (runda, nästa runda) => visar klubbmärket för rundan
-    fyllKlubbrad: null,   // (runda, element) => klubbens märke och namn på resultatkortet
-    hemmaIgen: null,      // startar en ny omgång med samma klubbar och tid
+    // Sätts av quiz.js:
+    visaKlubb: null,      // (runda, nästa runda) => visar rundans fråga (märke eller text)
+    fyllKlubbrad: null,   // (runda, element) => frågan på resultatkortet
+    hemmaIgen: null,      // startar en ny omgång i samma läge och med samma tid
     // Sätts av multi.js:
     multiGissa: null,     // (gissning eller null) => skickar gissningen till värden
     multiNasta: null,     // värden går vidare till nästa runda

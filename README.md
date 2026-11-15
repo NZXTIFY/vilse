@@ -2,7 +2,7 @@
 
 Ett geografispel i stil med GeoGuessr. Du hamnar på en slumpad plats i Google Street View, ser dig omkring och sätter ut en nål på kartan där du tror att du är. Fem rundor, högst 5 000 poäng per runda.
 
-Fliken **Hemmaplan** visar ett klubbmärke, och du ska sätta nålen på klubbens hemmaarena. Fliken **Träna** lär dig känna igen länder med ledtrådar från [Plonk It](https://www.plonkit.net/guide).
+Fliken **Quiz** har sex lägen där du får en fråga och sätter nålen på rätt plats: Hemmaplan (klubbmärke → arena), Bilmärken, Företag, Historia, Landmärken och Huvudstäder. Fliken **Träna** lär dig känna igen länder med ledtrådar från [Plonk It](https://www.plonkit.net/guide).
 
 **Spela: https://nzxtify.github.io/vilse/**
 
@@ -25,15 +25,26 @@ Det går oftast också att dubbelklicka på `index.html`.
 - **Platserna** finns i `platser.js` (634 st i 95 länder och områden). Varje punkt ligger på en bilväg och är kontrollerad med `verktyg/agare.html`, så att Googles egna gatubilder visas i stället för användarnas flygbilder och inomhusfoton.
 - Rekord, träningsstatistik och senast spelade platser sparas i webbläsarens `localStorage`.
 
-## Hemmaplan
+## Quiz
 
-- Du får se ett klubbmärke och sätter nålen på klubbens hemmaarena. Kartan är stor, eftersom du behöver zooma in ända till arenan.
-- **Poäng:** hälften för rätt trakt och hälften för att pricka arenan, `5000 · (0,5 · e^(−km/15) + 0,5 · e^(−km/500))`. Inom 150 meter från arenans mitt ger full poäng. Rätt stad men fel stadsdel ger runt 4 000 poäng.
-- **Visa klubbens namn** hjälper dig när du inte känner igen märket, men halverar rundans poäng.
-- Fyra urval: Storklubbar (77 handplockade), Hela världen, Norden och Sverige. Rekord sparas per urval.
+Sex lägen med samma upplägg: en fråga till vänster, en stor karta till höger, fem rundor. Koden finns i `quiz.js`.
+
+| Läge | Du får se | Du ska hitta | Full poäng inom |
+|---|---|---|---|
+| Hemmaplan | ett klubbmärke | klubbens hemmaarena | 150 m |
+| Bilmärken | ett bil- eller motorcykelmärke | orten med huvudkontoret | 10 km |
+| Företag | ett företags logga | orten med huvudkontoret | 10 km |
+| Historia | en händelse och ett årtal | platsen där det hände | 10 km |
+| Landmärken | namnet på en sevärdhet | sevärdheten | 1 km |
+| Huvudstäder | ett land | landets huvudstad | 10 km |
+
+- **Poäng:** hälften för rätt trakt och hälften för att pricka platsen, `5000 · (0,5 · e^(−km/a) + 0,5 · e^(−km/b))`. Måtten `a` och `b` är olika för varje läge (15 och 500 km i Hemmaplan, 80 och 900 km för huvudkontor) och står i `LAGEN` i `quiz.js`.
+- **Ledtråd:** i lägena med märken kan du visa namnet, och i Historia och Landmärken landet. Det halverar rundans poäng.
+- Hemmaplan har fyra urval: Storklubbar (77 handplockade), Hela världen, Norden och Sverige. Rekord sparas per läge och urval.
 - **Klubbarna** finns i `klubbar.js` (308 st): `[klubb, hemmaarena, lat, lng, land, region, logga, stor]`. Klubbar, arenor och koordinater kommer från [Wikidata](https://www.wikidata.org/) (CC0).
-- **Märkena** hämtas direkt från [Wikimedia Commons](https://commons.wikimedia.org/) när de finns där som fria bilder (142 klubbar). Övriga klubbars märken är upphovsrättsskyddade och hämtas från klubbens artikel på engelska Wikipedia, där de används som lågupplösta bilder ("fair use"). Resultatkortet länkar till bildens sida. Går ett märke inte att ladda visas klubbens namn i en sköld i stället.
-- Lägg till en klubb genom att skriva en ny rad i `klubbar.js`. `logga` är filnamnet på Commons (utan `File:`), `en:filnamn` för en bild på engelska Wikipedia, eller tomt.
+- **Övriga frågor** finns i `kunskap.js`: `[fråga, svar, lat, lng, land, extra]`, där extra är märkets bild eller händelsens årtal. Koordinaterna kommer från artiklarna på engelska Wikipedia, huvudstäderna från Wikidata.
+- **Märkena** hämtas direkt från [Wikimedia Commons](https://commons.wikimedia.org/) när de finns där som fria bilder. Skyddade märken (de flesta klubbmärken och några bilmärken) hämtas från artikeln på engelska Wikipedia, där de används som lågupplösta bilder ("fair use"). Resultatkortet länkar till bildens sida. Går ett märke inte att ladda visas namnet i en sköld i stället.
+- Lägg till en fråga genom att skriva en ny rad i `klubbar.js` eller `kunskap.js`. En bild anges som filnamnet på Commons (utan `File:`), `en:filnamn` för en bild på engelska Wikipedia, eller tomt.
 
 ## Träningsläget
 
@@ -75,7 +86,7 @@ Plonk Its bilder används inte. Varje land länkar i stället till sin sida på 
 ## Verktyg
 
 - `verktyg/agare.html?from=0&n=21&h=70` visar vem som äger gatubilden på varje plats. Längst ned i varje ruta ska det stå "© Google". Står det ett namn eller bara "Kartdata" är bilden uppladdad av en användare (ofta en flygbild eller ett inomhusfoto), och då ska platsen flyttas. `?punkter=lat,lng,Namn;lat,lng,Namn` provar fria punkter innan du flyttar dit.
-- `verktyg/loggor.html` visar alla klubbmärken i Hemmaplan, och `?utan=1` klubbarna som saknar märke.
+- `verktyg/loggor.html` visar alla klubbmärken i Hemmaplan, och `?utan=1` klubbarna som saknar märke. `?quiz=bilar` och `?quiz=foretag` visar märkena i de lägena.
 - `verktyg/kontroll.html?from=0&n=15` visar 15 platser i ett rutnät så att du kan se vilka som saknar bild. `?orter=Umeå,Falun` visar bara de namngivna, och `?idx=12,40` platserna med de numren.
 - `node verktyg/lagg-till.mjs nya.json` lägger till nya platser och flyttar dem till närmaste väg. Formatet är `[lat, lng, "Ort", "Land", "region"]`, med ett valfritt sjätte fält för träningsland (till exempel `"Hongkong"`).
 - `node verktyg/flytta.mjs "Umeå=63.83,20.24"` ger en plats ny startpunkt och flyttar den till närmaste väg. `"Ort=bort"` tar bort platsen.

@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="stil.css?v=26">
+<link rel="stylesheet" href="stil.css?v=28">
 </head>
 <body data-lage="start">
 
@@ -27,7 +27,7 @@
 
     <div class="flikar" role="tablist" aria-label="Läge">
       <button id="flikKnappSpela" class="flik" role="tab" aria-selected="true" aria-controls="flikSpela" type="button">Spela</button>
-      <button id="flikKnappHemma" class="flik" role="tab" aria-selected="false" aria-controls="flikHemma" type="button">Hemmaplan</button>
+      <button id="flikKnappHemma" class="flik" role="tab" aria-selected="false" aria-controls="flikHemma" type="button">Quiz</button>
       <button id="flikKnappTrana" class="flik" role="tab" aria-selected="false" aria-controls="flikTrana" type="button">Träna</button>
       <button id="flikKnappMulti" class="flik" role="tab" aria-selected="false" aria-controls="flikMulti" type="button">Med vänner</button>
     </div>
@@ -48,8 +48,14 @@
     </div>
 
     <div id="flikHemma" class="flikinnehall" role="tabpanel" aria-labelledby="flikKnappHemma" hidden>
-      <p class="ingress-liten">Du får se ett klubbmärke. Sätt nålen på klubbens hemmaarena, så nära mittcirkeln du kan. Rätt trakt ger upp till halva poängen, resten får du för att pricka arenan.</p>
       <fieldset class="val">
+        <legend>Läge</legend>
+        <div id="quizLage" class="chipval"></div>
+      </fieldset>
+      <p id="quizText" class="ingress-liten"></p>
+      <p id="quizInfo" class="quiz-info" hidden></p>
+
+      <fieldset class="val" id="hemmaKlubbar">
         <legend>Klubbar</legend>
         <div id="hemmaUrval" class="kartval"></div>
       </fieldset>
@@ -60,7 +66,7 @@
       </fieldset>
 
       <button id="hemmaStart" class="knapp knapp-bana knapp-stor" type="button">Starta</button>
-      <p class="regler">5 rundor · högst 5 000 poäng per runda · märken från <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a> och <a href="https://en.wikipedia.org/" target="_blank" rel="noopener">Wikipedia</a></p>
+      <p class="regler">5 rundor · högst 5 000 poäng per runda. Rätt trakt ger halva poängen, resten får du för att pricka platsen. Märken från <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a> och <a href="https://en.wikipedia.org/" target="_blank" rel="noopener">Wikipedia</a></p>
     </div>
 
     <div id="flikTrana" class="flikinnehall" role="tabpanel" aria-labelledby="flikKnappTrana" hidden>
@@ -181,13 +187,13 @@
   </button>
 </div>
 
-<!-- Hemmaplan: klubbmärket vars hemmaarena ska hittas på kartan -->
+<!-- Quizlägena: frågan (ett märke eller en text) vars plats ska hittas på kartan -->
 <div id="klubbPanel" class="klubb" hidden>
-  <p class="overrad">Vems hemmaplan?</p>
+  <p class="overrad" id="klubbOverrad"></p>
   <div id="klubbLogga" class="klubb-logga"></div>
   <p id="klubbNamn" class="klubb-namn" hidden></p>
-  <p class="klubb-fraga">Sätt nålen på klubbens hemmaarena</p>
-  <button id="klubbVisaNamn" class="knapp knapp-papper knapp-liten" type="button">Visa klubbens namn (halva poängen)</button>
+  <p class="klubb-fraga" id="klubbFraga"></p>
+  <button id="klubbVisaNamn" class="knapp knapp-papper knapp-liten" type="button"></button>
   <p id="klubbInfo" class="etikett" aria-live="polite"></p>
 </div>
 
@@ -328,13 +334,14 @@
 </section>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="platser.js?v=26"></script>
-<script src="ledtradar.js?v=26"></script>
-<script src="spel.js?v=26"></script>
-<script src="traning.js?v=26"></script>
-<script src="klubbar.js?v=26"></script>
-<script src="hemmaplan.js?v=26"></script>
+<script src="platser.js?v=28"></script>
+<script src="ledtradar.js?v=28"></script>
+<script src="spel.js?v=28"></script>
+<script src="traning.js?v=28"></script>
+<script src="klubbar.js?v=28"></script>
+<script src="kunskap.js?v=28"></script>
+<script src="quiz.js?v=28"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="multi.js?v=26"></script>
+<script src="multi.js?v=28"></script>
 </body>
 </html>
