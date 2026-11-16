@@ -9,7 +9,7 @@
 
   // En fråga: namn (det som visas eller avslöjas), svar (platsens namn), var den ligger, och ibland märke eller årtal
   const KLUBBAR = window.KLUBBAR.map(k => ({
-    namn: k[0], svar: k[1], lat: k[2], lng: k[3], land: k[4], region: k[5], logga: k[6], stor: !!k[7], namnIMarket: !!k[8],
+    namn: k[0], svar: k[1], lat: k[2], lng: k[3], land: k[4], region: k[5], logga: k[6], stor: !!k[7], namnIMarket: !!k[8], liga: k[9] || '',
   }));
   const fragor = (nyckel, extra) => window.KUNSKAP[nyckel].map(r => ({
     namn: r[0], svar: r[1], lat: r[2], lng: r[3], land: r[4], [extra]: r[5],
@@ -75,6 +75,7 @@
   // Hemmaplans urval. vy: kartans startutsnitt, där 'varlden' visar hela den bebodda världen.
   const URVAL = [
     { id: 'stor', namn: 'Storklubbar', text: 'Från Anfield till La Bombonera.', filter: k => k.stor, vy: 'varlden' },
+    { id: 'topp', namn: 'Europas toppligor', text: 'Alla lag i Premier League, La Liga, Serie A, Bundesliga och Ligue 1.', filter: k => !!k.liga, vy: [[35.5, -10.5], [56, 19.5]] },
     { id: 'alla', namn: 'Hela världen', text: 'Alla klubbar, stora som små.', filter: () => true, vy: 'varlden' },
     { id: 'norden', namn: 'Norden', text: 'Sex länder, från Malmö till Tromsø.', filter: k => k.region === 'se' || k.region === 'nd', vy: [[54.5, -24], [70, 31]] },
     { id: 'sverige', namn: 'Sverige', text: 'Från Trelleborg till Östersund.', filter: k => k.region === 'se', vy: [[55.2, 10.5], [66, 24.5]] },
