@@ -315,6 +315,7 @@
     $('slutKort').hidden = lage !== 'slut' || S.multi;
     $('multiSlut').hidden = lage !== 'slut' || !S.multi;
     $('bekrafta').hidden = true;
+    if (!spel) $('tidNotis').hidden = true;
     $('giss').classList.remove('oppen', 'har-fokus');
   }
 
@@ -531,6 +532,19 @@
     S.timer = 0;
     $('hudTidRad').classList.remove('bratt');
     stoppaVarning();
+  }
+
+  // I ett rum: någon annan har gissat, så den här spelaren har bara ms kvar (om det inte redan är mindre)
+  let notisTimer = 0;
+  function kortaTid(ms, text) {
+    if (S.lage !== 'spel' || !S.multi || S.multiGissat || !S.timer) return;
+    if (S.slutTid - performance.now() <= ms) return;
+    startaTimer(ms);
+    const el = $('tidNotis');
+    el.textContent = text;
+    el.hidden = false;
+    clearTimeout(notisTimer);
+    notisTimer = setTimeout(() => { el.hidden = true; }, 4000);
   }
 
   // ---------- Tidsvarning ----------
@@ -906,7 +920,7 @@
     S, $, nf, las, spara, blanda, avstandKm, fmtAvstand, reduceraRorelse, mobil,
     satVy, laddaVy, kartlager, ikonFacit, visaLage, tillMeny, startaFriTraning,
     KARTOR, RUNDOR, valjPlatser, skalaForKarta, poangFor, poangQuiz, raknaUpp, forladda,
-    startaMultiRunda, visaMultiResultat, visaMultiSlut, bakgrundsvy,
+    startaMultiRunda, visaMultiResultat, visaMultiSlut, bakgrundsvy, kortaTid,
     TIDER, esc, startaHemma,
     // Sätts av quiz.js:
     visaKlubb: null,      // (runda, nästa runda) => visar rundans fråga (märke eller text)
@@ -914,8 +928,9 @@
     hemmaIgen: null,      // startar en ny omgång i samma läge och med samma tid
     quizLagen: [],        // [{ id, namn }] lägena, och quizUrval Hemmaplans urval, för lobbyn i multi.js
     quizUrval: [],
-    quizInfo: null,       // (läge, urval) => { id, namn, vy, quiz } för startaMultiRunda
-    quizRundor: null,     // (läge, urval) => [{ plats, fraga }] frågorna till en omgång
+    quizSvar: [],         // Hemmaplans svårighetsgrader
+    quizInfo: null,       // (läge, urval, svårighet) => { id, namn, vy, quiz } för startaMultiRunda
+    quizRundor: null,     // (läge, urval, svårighet) => [{ plats, fraga }] frågorna till en omgång
     quizForladda: null,   // (märke) => hämtar märket i förväg
     // Sätts av multi.js:
     multiGissa: null,     // (gissning eller null, ledtråd använd) => skickar gissningen till värden

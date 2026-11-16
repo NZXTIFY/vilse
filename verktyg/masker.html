@@ -1,0 +1,78 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Masker</title>
+<!--
+  Visar klubbmärken med namnet i märket, med maskerna från masker.js ovanpå och ett rutnät var tionde procent,
+  så att man kan läsa av var en ny mask ska ligga och se att den täcker namnet.
+
+  ?from=0&n=12      klubbarna 0–11 bland dem som har namnet i märket
+  ?klubb=Arsenal FC|Chelsea FC   bara de här klubbarna
+  &kol=4            antal kolumner
+  &utan=1           utan masker
+  &rutor=0          utan rutnät
+  &saknas=1         bara klubbar som har namnet i märket men ingen mask än
+
+  I konsolen: farg('Arsenal FC', 50, 10) ger färgen i märket 50 % in och 10 % ned.
+-->
+<style>
+  body { margin: 0; padding: 6px; background: #ddd; font: 12px/1.2 system-ui; }
+  #grid { display: grid; gap: 6px; }
+  .cell { background: #fff; padding: 4px; }
+  .cell b { display: block; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ruta { position: relative; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+  .maskram { position: relative; }
+  .maskram img { display: block; width: 100%; height: 100%; }
+  .maskram svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .rutnat { position: absolute; inset: 0; pointer-events: none;
+    background-image: linear-gradient(to right, rgba(255,0,255,.45) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,0,255,.45) 1px, transparent 1px);
+    background-size: 10% 10%; }
+</style>
+<div id="grid"></div>
+<script>document.write(`<script src="../klubbar.js?t=${Date.now()}"><` + `/script>`);</script>
+<script>document.write(`<script src="../masker.js?t=${Date.now()}"><` + `/script>`);</script>
+<script>
+  const p = new URLSearchParams(location.search);
+  const from = +(p.get('from') || 0), n = +(p.get('n') || 12);
+  const url = (fil, bredd) => `${fil.startsWith('en:') ? 'https://en.wikipedia.org' : 'https://commons.wikimedia.org'}/wiki/Special:FilePath/${encodeURIComponent(fil.replace(/^en:/, ''))}?width=${bredd}`;
+  let lista = KLUBBAR.filter(k => k[6] && k[8]);
+  if (p.get('saknas')) lista = lista.filter(k => !MASKER[k[0]]);
+  lista = p.get('klubb') ? KLUBBAR.filter(k => p.get('klubb').split('|').includes(k[0])) : lista.slice(from, from + n);
+  const grid = document.getElementById('grid');
+  grid.style.gridTemplateColumns = `repeat(${p.get('kol') || 4}, 1fr)`;
+  for (const k of lista) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.innerHTML = `<div class="ruta"></div><b>${KLUBBAR.filter(x => x[6] && x[8]).indexOf(k)} ${k[0]}</b>`;
+    grid.appendChild(cell);
+    const bild = new Image();
+    bild.onload = () => {
+      const ram = maskeraMarke(bild, p.get('utan') ? [] : (MASKER[k[0]] || []));
+      if (p.get('rutor') !== '0') ram.insertAdjacentHTML('beforeend', '<div class="rutnat"></div>');
+      cell.firstChild.appendChild(ram);
+    };
+    bild.src = url(k[6], 480);
+  }
+
+  // Färgen i märket på en punkt (i procent), för att ge masken samma färg som bakgrunden
+  // Special:FilePath skickar vidare utan CORS, så bildens egen adress på upload.wikimedia.org hämtas via API:t
+  const direkt = async fil => {
+    const vard = fil.startsWith('en:') ? 'https://en.wikipedia.org' : 'https://commons.wikimedia.org';
+    const svar = await fetch(`${vard}/w/api.php?action=query&format=json&origin=*&prop=imageinfo&iiprop=url&iiurlwidth=480&titles=${encodeURIComponent('File:' + fil.replace(/^en:/, ''))}`).then(r => r.json());
+    return Object.values(svar.query.pages)[0].imageinfo[0].thumburl;
+  };
+  window.farg = async (namn, x, y) => { const k = KLUBBAR.find(k => k[0] === namn); return lasFarg(await direkt(k[6]), x, y); };
+  const lasFarg = (src, x, y) => new Promise((ok, fel) => {
+    const bild = new Image();
+    bild.crossOrigin = 'anonymous';
+    bild.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = bild.naturalWidth; c.height = bild.naturalHeight;
+      const g = c.getContext('2d');
+      g.drawImage(bild, 0, 0);
+      const d = g.getImageData(Math.min(c.width - 1, Math.round(x / 100 * c.width)), Math.min(c.height - 1, Math.round(y / 100 * c.height)), 1, 1).data;
+      ok(d[3] < 128 ? 'genomskinlig' : '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join(''));
+    };
+    bild.onerror = fel;
+    bild.src = src;
+  });
+</script>

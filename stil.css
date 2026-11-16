@@ -562,6 +562,9 @@ body.hemma .vy { display: none; }
 }
 .klubb-logga { width: min(100%, 280px, 32vh); aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
 .klubb-logga img { display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; object-fit: contain; }
+/* Svårt i Hemmaplan: ytor som täcker klubbens namn i märket (masker.js) */
+.maskram { position: relative; flex: none; --maskbakgrund: var(--papper); }
+.maskram svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .klubb-namn { margin: 0; font: 800 34px/1 var(--font-rubrik); text-wrap: balance; }
 .klubb-fraga { margin: 0; font: 700 24px/1.15 var(--font-rubrik); text-wrap: balance; }
 .klubb .etikett { max-width: 30ch; min-height: 2.9em; text-wrap: pretty; }
@@ -676,4 +679,12 @@ body.hemma .vy { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* Rum med vänner: någon har gissat och tiden har kortats */
+.tid-notis {
+  position: fixed; z-index: 45; top: calc(64px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%);
+  max-width: calc(100% - 32px); margin: 0; padding: 9px 16px; border-radius: var(--radie);
+  background: var(--tryck); color: var(--papper); font: 700 16px/1.2 var(--font-rubrik); letter-spacing: .02em; text-align: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .28); pointer-events: none;
 }

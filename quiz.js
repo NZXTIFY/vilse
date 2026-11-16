@@ -9,7 +9,7 @@
 
   // En fråga: namn (det som visas eller avslöjas), svar (platsens namn), var den ligger, och ibland märke eller årtal
   const KLUBBAR = window.KLUBBAR.map(k => ({
-    namn: k[0], svar: k[1], lat: k[2], lng: k[3], land: k[4], region: k[5], logga: k[6], stor: !!k[7],
+    namn: k[0], svar: k[1], lat: k[2], lng: k[3], land: k[4], region: k[5], logga: k[6], stor: !!k[7], namnIMarket: !!k[8],
   }));
   const fragor = (nyckel, extra) => window.KUNSKAP[nyckel].map(r => ({
     namn: r[0], svar: r[1], lat: r[2], lng: r[3], land: r[4], [extra]: r[5],
@@ -79,7 +79,16 @@
     { id: 'norden', namn: 'Norden', text: 'Sex länder, från Malmö till Tromsø.', filter: k => k.region === 'se' || k.region === 'nd', vy: [[54.5, -24], [70, 31]] },
     { id: 'sverige', namn: 'Sverige', text: 'Från Trelleborg till Östersund.', filter: k => k.region === 'se', vy: [[55.2, 10.5], [66, 24.5]] },
   ];
-  const rekordNyckel = (lage, urval) => lage.id === 'hemma' ? `hemma-${urval.id}` : `quiz-${lage.id}`;
+  // Svårighetsgrader i Hemmaplan. Svårt tar bara med märken där klubbens namn eller ort inte står (se klubbar.js),
+  // eller där namnet går att täcka över med en mask (masker.js).
+  const MASKER = window.MASKER || {};
+  const SVAR = [
+    { id: 'normal', namn: 'Normal', filter: () => true },
+    { id: 'svart', namn: 'Svårt', filter: k => !k.namnIMarket || !!MASKER[k.namn] },
+  ];
+  const klubbarFor = (urval, svar) => KLUBBAR.filter(k => urval.filter(k) && svar.filter(k));
+  const rekordNyckel = (lage, urval, svar) => lage.id !== 'hemma' ? `quiz-${lage.id}`
+    : `hemma-${urval.id}${svar.id === 'normal' ? '' : `-${svar.id}`}`;
 
   // Märkena hämtas från Wikimedia Commons, eller från engelska Wikipedia ("en:filnamn") för skyddade märken
   // som inte finns som fria bilder. Båda skalar bilden till den bredd man ber om.
@@ -95,12 +104,13 @@
   const valtLage = () => LAGEN.find(l => l.id === document.querySelector('input[name="quizlage"]:checked')?.value) || LAGEN[0];
   const valtUrval = () => URVAL.find(u => u.id === document.querySelector('input[name="hemmaurval"]:checked')?.value) || URVAL[0];
   const valdTid = () => +(document.querySelector('input[name="hemmatid"]:checked')?.value || 0);
+  const valdSvar = () => SVAR.find(s => s.id === document.querySelector('input[name="hemmasvar"]:checked')?.value) || SVAR[0];
 
   function byggFlik() {
     const val = las('vilse.hemmaVal', {});
-    const rekord = las('vilse.rekord', {});
     const lage = LAGEN.some(l => l.id === val.lage) ? val.lage : 'hemma';
     const urval = URVAL.some(u => u.id === val.urval) ? val.urval : 'stor';
+    const svar = SVAR.some(s => s.id === val.svar) ? val.svar : 'normal';
     const tid = TIDER.some(t => t.s === val.tid) ? val.tid : 0;
 
     $('quizLage').innerHTML = LAGEN.map(l => `<label class="chip">
@@ -108,18 +118,11 @@
         <span>${l.namn}</span>
       </label>`).join('');
 
-    $('hemmaUrval').innerHTML = URVAL.map(u => {
-      const antal = KLUBBAR.filter(u.filter).length;
-      const r = rekord[`hemma-${u.id}`];
-      const best = r ? `rekord <b>${nf.format(r)}</b>` : `<b>&nbsp;</b>`;
-      return `<label class="kartrad">
-        <input type="radio" name="hemmaurval" value="${u.id}" ${u.id === urval ? 'checked' : ''}>
-        <span class="ring" aria-hidden="true"></span>
-        <span class="kartrad-namn">${u.namn}</span>
-        <span class="kartrad-info">${best}${antal} klubbar</span>
-        <span class="kartrad-text">${u.text}</span>
-      </label>`;
-    }).join('');
+    $('hemmaSvar').innerHTML = SVAR.map(s => `<label>
+        <input type="radio" name="hemmasvar" value="${s.id}" ${s.id === svar ? 'checked' : ''}>
+        <span>${s.namn}</span>
+      </label>`).join('');
+    byggUrval(urval);
 
     $('hemmaTid').innerHTML = TIDER.map(t => `<label>
         <input type="radio" name="hemmatid" value="${t.s}" ${t.s === tid ? 'checked' : ''}>
@@ -128,12 +131,34 @@
     visaLagesinfo();
   }
 
-  // Lägets beskrivning, antal frågor och rekord. Klubburvalet visas bara för Hemmaplan.
+  // Klubburvalen med antal klubbar och rekord för den valda svårighetsgraden
+  function byggUrval(vald = valtUrval().id) {
+    const rekord = las('vilse.rekord', {});
+    const svar = valdSvar();
+    const hemma = LAGEN[0];
+    $('hemmaUrval').innerHTML = URVAL.map(u => {
+      const antal = klubbarFor(u, svar).length;
+      const r = rekord[rekordNyckel(hemma, u, svar)];
+      const best = r ? `rekord <b>${nf.format(r)}</b>` : `<b>&nbsp;</b>`;
+      return `<label class="kartrad">
+        <input type="radio" name="hemmaurval" value="${u.id}" ${u.id === vald ? 'checked' : ''}>
+        <span class="ring" aria-hidden="true"></span>
+        <span class="kartrad-namn">${u.namn}</span>
+        <span class="kartrad-info">${best}${antal} klubbar</span>
+        <span class="kartrad-text">${u.text}</span>
+      </label>`;
+    }).join('');
+  }
+
+  // Lägets beskrivning, antal frågor och rekord. Klubburvalet och svårighetsgraden visas bara för Hemmaplan.
   function visaLagesinfo() {
     const lage = valtLage();
     const hemma = lage.id === 'hemma';
-    $('quizText').textContent = lage.text;
+    $('quizText').textContent = hemma && valdSvar().id === 'svart'
+      ? `${lage.text} Svårt: bara märken där klubbens namn och ort inte står.`
+      : lage.text;
     $('hemmaKlubbar').hidden = !hemma;
+    $('hemmaSvarFalt').hidden = !hemma;
     const r = las('vilse.rekord', {})[`quiz-${lage.id}`];
     $('quizInfo').hidden = hemma;
     if (!hemma) $('quizInfo').innerHTML = `${lage.pool().length} frågor${r ? ` · rekord <b>${nf.format(r)}</b>` : ''}`;
@@ -160,24 +185,24 @@
   }
 
   // Lägets namn, startutsnitt och allt spel.js behöver veta om det
-  function info(lage, urval) {
+  function info(lage, urval, svar) {
     const hemma = lage.id === 'hemma';
     return {
-      id: rekordNyckel(lage, urval),
-      namn: hemma ? urval.namn : lage.namn,
+      id: rekordNyckel(lage, urval, svar),
+      namn: hemma ? `${urval.namn}${svar.id === 'normal' ? '' : ` · ${svar.namn}`}` : lage.namn,
       vy: hemma ? urval.vy : 'varlden',
-      quiz: { lage, etikett: lage.etikett || 'Quiz', poang: lage.poang, zoom: lage.zoom, omdomen: lage.omdomen || OMDOME, ...lage.texter },
+      quiz: { lage, maska: hemma && svar.id === 'svart', etikett: lage.etikett || 'Quiz', poang: lage.poang, zoom: lage.zoom, omdomen: lage.omdomen || OMDOME, ...lage.texter },
     };
   }
-  const fragorFor = (lage, urval) => valjFragor(lage, lage.id === 'hemma' ? KLUBBAR.filter(urval.filter) : lage.pool());
+  const fragorFor = (lage, urval, svar) => valjFragor(lage, lage.id === 'hemma' ? klubbarFor(urval, svar) : lage.pool());
 
   let senasteStart = null;
-  function starta(lage, urval, tid) {
-    const valda = fragorFor(lage, urval);
-    senasteStart = [lage, urval, tid];
-    spara('vilse.hemmaVal', { lage: lage.id, urval: urval.id, tid });
+  function starta(lage, urval, svar, tid) {
+    const valda = fragorFor(lage, urval, svar);
+    senasteStart = [lage, urval, svar, tid];
+    spara('vilse.hemmaVal', { lage: lage.id, urval: urval.id, svar: svar.id, tid });
     V.startaHemma({
-      ...info(lage, urval),
+      ...info(lage, urval, svar),
       tid,
       rundor: valda.map(k => ({ plats: [k.lat, k.lng, k.svar, k.land], klubb: k, namnVisat: false })),
     });
@@ -188,8 +213,9 @@
   // så att svaret inte går att läsa ut i förväg.
   const hittaLage = id => LAGEN.find(l => l.id === id) || LAGEN[0];
   const hittaUrval = id => URVAL.find(u => u.id === id) || URVAL[0];
-  function quizRundor(lageId, urvalId) {
-    return fragorFor(hittaLage(lageId), hittaUrval(urvalId)).map(k => ({
+  const hittaSvar = id => SVAR.find(s => s.id === id) || SVAR[0];
+  function quizRundor(lageId, urvalId, svarId) {
+    return fragorFor(hittaLage(lageId), hittaUrval(urvalId), hittaSvar(svarId)).map(k => ({
       plats: [k.lat, k.lng, k.svar, k.land],
       fraga: { namn: k.namn, logga: k.logga || '', ar: k.ar || '', land: k.land },
     }));
@@ -234,7 +260,15 @@
         if (S.hemma && S.rundor[S.nr] === runda && S.lage === 'spel') visaSkold(k);
       };
       bild.src = loggaUrl(k.logga, 480);
-      $('klubbLogga').appendChild(bild);
+      const masker = q.maska && MASKER[k.namn];
+      if (masker) {
+        // Märket visas först när maskerna kan läggas på, så att namnet aldrig syns
+        bild.onload = () => {
+          if (S.rundor[S.nr] === runda && S.lage === 'spel') $('klubbLogga').appendChild(window.maskeraMarke(bild, masker));
+        };
+      } else {
+        $('klubbLogga').appendChild(bild);
+      }
       $('klubbVisaNamn').hidden = false;
     } else {
       visaSkold(k);
@@ -264,8 +298,9 @@
   }
 
   // ---------- Händelser ----------
-  $('hemmaStart').addEventListener('click', () => starta(valtLage(), valtUrval(), valdTid()));
+  $('hemmaStart').addEventListener('click', () => starta(valtLage(), valtUrval(), valdSvar(), valdTid()));
   $('quizLage').addEventListener('change', visaLagesinfo);
+  $('hemmaSvar').addEventListener('change', () => { byggUrval(); visaLagesinfo(); });
   $('klubbVisaNamn').addEventListener('click', visaLedtrad);
   document.addEventListener('vilse:meny', byggFlik);   // rekorden kan ha ändrats
 
@@ -275,7 +310,8 @@
     hemmaIgen: () => { if (senasteStart) starta(...senasteStart); },
     quizLagen: LAGEN.map(l => ({ id: l.id, namn: l.namn })),
     quizUrval: URVAL.map(u => ({ id: u.id, namn: u.namn })),
-    quizInfo: (lageId, urvalId) => info(hittaLage(lageId), hittaUrval(urvalId)),
+    quizSvar: SVAR.map(s => ({ id: s.id, namn: s.namn })),
+    quizInfo: (lageId, urvalId, svarId) => info(hittaLage(lageId), hittaUrval(urvalId), hittaSvar(svarId)),
     quizRundor,
     quizForladda: fil => { if (fil && !trasiga.has(fil)) new Image().src = loggaUrl(fil, 480); },
   });

@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="stil.css?v=29">
+<link rel="stylesheet" href="stil.css?v=30">
 </head>
 <body data-lage="start">
 
@@ -58,6 +58,10 @@
       <fieldset class="val" id="hemmaKlubbar">
         <legend>Klubbar</legend>
         <div id="hemmaUrval" class="kartval"></div>
+      </fieldset>
+      <fieldset class="val" id="hemmaSvarFalt">
+        <legend>Svårighetsgrad</legend>
+        <div id="hemmaSvar" class="tidval tidval-2"></div>
       </fieldset>
 
       <fieldset class="val">
@@ -140,6 +144,10 @@
         <legend>Klubbar</legend>
         <div id="lobbyUrval" class="chipval chipval-2"></div>
       </fieldset>
+      <fieldset class="val" id="lobbySvarFalt" hidden>
+        <legend>Svårighetsgrad</legend>
+        <div id="lobbySvar" class="tidval tidval-2"></div>
+      </fieldset>
       <fieldset class="val">
         <legend>Tid per runda</legend>
         <div id="lobbyTid" class="tidval tidval-3"></div>
@@ -155,6 +163,8 @@
 <!-- Spelets överdel -->
 <!-- Röd ram som pulserar de sista 20 sekunderna av en runda -->
 <div id="tidVarning" class="tid-varning" aria-hidden="true" hidden></div>
+<!-- Rum med vänner: någon har gissat, så tiden har kortats -->
+<p id="tidNotis" class="tid-notis" role="status" hidden></p>
 
 <header id="hud" class="hud" hidden>
   <div class="hud-vanster">
@@ -343,14 +353,15 @@
 </section>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="platser.js?v=29"></script>
-<script src="ledtradar.js?v=29"></script>
-<script src="spel.js?v=29"></script>
-<script src="traning.js?v=29"></script>
-<script src="klubbar.js?v=29"></script>
-<script src="kunskap.js?v=29"></script>
-<script src="quiz.js?v=29"></script>
+<script src="platser.js?v=30"></script>
+<script src="ledtradar.js?v=30"></script>
+<script src="spel.js?v=30"></script>
+<script src="traning.js?v=30"></script>
+<script src="klubbar.js?v=30"></script>
+<script src="masker.js?v=30"></script>
+<script src="kunskap.js?v=30"></script>
+<script src="quiz.js?v=30"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="multi.js?v=29"></script>
+<script src="multi.js?v=30"></script>
 </body>
 </html>
