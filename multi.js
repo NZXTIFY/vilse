@@ -606,7 +606,7 @@
   async function delaLank() {
     const url = lank(M.kod);
     if (navigator.share && V.mobil.matches) {
-      try { await navigator.share({ title: 'Vilse', text: `Spela Vilse med mig! Rumskod ${M.kod}`, url }); return; } catch { /* avbrutet */ }
+      try { await navigator.share({ title: 'Lost in Lesh', text: `Spela Lost in Lesh med mig! Rumskod ${M.kod}`, url }); return; } catch { /* avbrutet */ }
     }
     try {
       await navigator.clipboard.writeText(url);

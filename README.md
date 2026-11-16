@@ -1,4 +1,4 @@
-# Vilse
+# Lost in Lesh
 
 Ett geografispel i stil med GeoGuessr. Du hamnar på en slumpad plats i Google Street View, ser dig omkring och sätter ut en nål på kartan där du tror att du är. Fem rundor, högst 5 000 poäng per runda.
 
