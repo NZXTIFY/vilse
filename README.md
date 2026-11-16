@@ -59,8 +59,9 @@ Varje land väljs lika ofta, oavsett hur många platser det har. Hongkong, Svalb
 ## Med vänner
 
 - Fliken **Med vänner** skapar ett rum med en fyrteckenskod, till exempel `K7Q2`. Andra går med genom koden eller via länken `…/vilse/?rum=K7Q2`. Ingen inloggning behövs, bara ett namn.
-- Upp till 8 spelare. Värden väljer karta och tid per runda (1–3 minuter) och startar omgången.
-- Alla får samma 5 platser med samma startriktning samtidigt. Rundan slutar när alla har gissat eller tiden är ute.
+- Upp till 8 spelare. Värden väljer spelläge, karta och tid per runda (1–3 minuter) och startar omgången.
+- Spelläget är antingen **Gatuvy** (vanligt spel på en karta) eller ett av quizlägena (Hemmaplan med valfritt urval av klubbar, Bilmärken, Företag, Historia, Landmärken eller Huvudstäder). I quizlägena räknas poängen som när man spelar ensam, och den som tar en ledtråd får halva poängen för rundan. Bara frågan skickas till de andra, svaret först med resultatet.
+- Alla får samma 5 platser (eller frågor) samtidigt, med samma startriktning i gatuvyn. Rundan slutar när alla har gissat eller tiden är ute.
 - Efter varje runda visas allas gissningar på kartan i var sin färg, med poänglista. Efter 5 rundor visas slutresultatet och värden kan starta en ny omgång.
 
 Tekniskt: värdens webbläsare håller i omgången, och de andra ansluter direkt till den med WebRTC via [PeerJS](https://peerjs.com/). PeerJS gratis kopplingsserver används bara för att webbläsarna ska hitta varandra, och dess reservservrar (TURN) hjälper när en direktanslutning inte går, till exempel på vissa mobilnät. Därför behöver värden ha spelet öppet tills omgången är slut. Koden finns i `multi.js`.

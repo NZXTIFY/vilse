@@ -53,11 +53,11 @@
   // Quizlägena (quiz.js): halva poängen för rätt trakt (flack kurva) och halva för att pricka platsen (brant kurva),
   // så att det lönar sig att zooma in. Varje läge har sina egna mått, till exempel 150 meter för en arena
   // och en mil för en stad.
-  function poangHemma(km) {
-    const { full, a, b } = S.karta.quiz.poang;
+  function poangQuiz(km, { full, a, b }) {
     if (km <= full) return MAXPOANG;
     return Math.round(MAXPOANG * (0.5 * Math.exp(-km / a) + 0.5 * Math.exp(-km / b)));
   }
+  const poangHemma = km => poangQuiz(km, S.karta.quiz.poang);
 
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -424,13 +424,20 @@
 
   // En runda i ett rum med vänner. Värden bestämmer plats, startriktning och hur lång tid som är kvar,
   // så att alla ser samma sak samtidigt. Gissningen skickas till värden i stället för att räknas här.
-  function startaMultiRunda({ kartId, nr, antal, plats, riktning, kvarMs, total }) {
-    const karta = KARTOR.find(k => k.id === kartId) || KARTOR[0];
-    const pool = window.PLATSER.filter(karta.filter);
+  // I ett quizläge kommer en fråga (quiz från quiz.js och fraga) i stället för en plats; svaret får
+  // ingen veta förrän resultatet kommer.
+  function startaMultiRunda({ kartId, quiz, fraga, nr, antal, plats, riktning, kvarMs, total }) {
     S.multi = true;
     S.traning = false;
-    S.hemma = false;
-    S.karta = { ...karta, pool };
+    S.hemma = !!quiz;
+    if (quiz) {
+      S.karta = { ...quiz, pool: [] };
+      S.rundor = [];
+      S.rundor[nr] = { klubb: fraga, namnVisat: false };
+    } else {
+      const karta = KARTOR.find(k => k.id === kartId) || KARTOR[0];
+      S.karta = { ...karta, pool: window.PLATSER.filter(karta.filter) };
+    }
     S.nr = nr;
     S.multiAntal = antal;
     S.multiTotal = total;
@@ -444,8 +451,12 @@
     uppdateraHud();
     stoppaTimer();
     $('hudTidRad').hidden = !kvarMs;
-    satVy(plats, riktning);
-    laddaVy();
+    if (quiz) {
+      api.visaKlubb(S.rundor[nr]);
+    } else {
+      satVy(plats, riktning);
+      laddaVy();
+    }
     if (kvarMs) startaTimer(kvarMs);
   }
 
@@ -576,7 +587,8 @@
       knapp.disabled = true;
       knapp.textContent = 'Väntar på de andra…';
       $('giss').classList.remove('oppen');
-      if (api.multiGissa) api.multiGissa(S.gissning ? { lat: S.gissning.lat, lng: S.gissning.lng } : null);
+      const ledtrad = S.hemma && !!(S.rundor[S.nr] && S.rundor[S.nr].namnVisat);
+      if (api.multiGissa) api.multiGissa(S.gissning ? { lat: S.gissning.lat, lng: S.gissning.lng } : null, ledtrad);
       return;
     }
     stoppaTimer();
@@ -656,7 +668,7 @@
       punkter.push(g, f);
     }
     L.marker(facit, { icon: ikonFacit, keyboard: false, interactive: false }).addTo(resLager);
-    passaIn(punkter, $('multiKort'), 16);
+    passaIn(punkter, $('multiKort'), S.hemma ? 17 : 16, S.hemma ? S.karta.quiz.zoom : 5);
   }
 
   // Slutresultat i ett rum: de fem platserna, numrerade
@@ -669,8 +681,8 @@
   }
 
   // Zooma in punkterna och lämna plats för kortet: till höger på dator, längst ned på mobil
-  function passaIn(punkter, kort, maxZoom) {
-    if (punkter.length === 1) { resKarta.setView(punkter[0], 5, { animate: false }); return; }
+  function passaIn(punkter, kort, maxZoom, ensamZoom = 5) {
+    if (punkter.length === 1) { resKarta.setView(punkter[0], ensamZoom, { animate: false }); return; }
     resKarta.fitBounds(L.latLngBounds(punkter), {
       paddingTopLeft: [50, 60],
       paddingBottomRight: mobil.matches ? [50, kort.offsetHeight + 40] : [kort.offsetWidth + 60, 60],
@@ -893,15 +905,20 @@
   Object.assign(api, {
     S, $, nf, las, spara, blanda, avstandKm, fmtAvstand, reduceraRorelse, mobil,
     satVy, laddaVy, kartlager, ikonFacit, visaLage, tillMeny, startaFriTraning,
-    KARTOR, RUNDOR, valjPlatser, skalaForKarta, poangFor, raknaUpp, forladda,
+    KARTOR, RUNDOR, valjPlatser, skalaForKarta, poangFor, poangQuiz, raknaUpp, forladda,
     startaMultiRunda, visaMultiResultat, visaMultiSlut, bakgrundsvy,
     TIDER, esc, startaHemma,
     // Sätts av quiz.js:
     visaKlubb: null,      // (runda, nästa runda) => visar rundans fråga (märke eller text)
     fyllKlubbrad: null,   // (runda, element) => frågan på resultatkortet
     hemmaIgen: null,      // startar en ny omgång i samma läge och med samma tid
+    quizLagen: [],        // [{ id, namn }] lägena, och quizUrval Hemmaplans urval, för lobbyn i multi.js
+    quizUrval: [],
+    quizInfo: null,       // (läge, urval) => { id, namn, vy, quiz } för startaMultiRunda
+    quizRundor: null,     // (läge, urval) => [{ plats, fraga }] frågorna till en omgång
+    quizForladda: null,   // (märke) => hämtar märket i förväg
     // Sätts av multi.js:
-    multiGissa: null,     // (gissning eller null) => skickar gissningen till värden
+    multiGissa: null,     // (gissning eller null, ledtråd använd) => skickar gissningen till värden
     multiNasta: null,     // värden går vidare till nästa runda
     multiLamna: null,     // lämnar rummet
     // Sätts av traning.js:

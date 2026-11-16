@@ -8,6 +8,9 @@
 //
 // forladda skickar nästa rundas plats i förväg (i lobbyn och medan resultatet visas), så att alla
 // hinner ladda gatuvyn i bakgrunden och rundan inte börjar med en svart skärm.
+//
+// Värden kan också välja ett quizläge (quiz.js). Då skickar runda bara frågan (märke eller text och
+// ledtråden), gissningen säger om ledtråden användes, och resultatet avslöjar svaret.
 (() => {
   'use strict';
 
@@ -25,6 +28,13 @@
 
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const kartnamn = id => (V.KARTOR.find(k => k.id === id) || V.KARTOR[0]).namn;
+  // Spelläget: 'gatuvy' (vanligt spel på en karta) eller ett quizläge från quiz.js
+  const arQuiz = inst => inst.lage !== 'gatuvy' && V.quizLagen.some(l => l.id === inst.lage);
+  const lagesnamn = inst => {
+    if (!arQuiz(inst)) return kartnamn(inst.karta);
+    const { namn, quiz } = V.quizInfo(inst.lage, inst.urval);
+    return `${quiz.etikett} · ${namn}`;
+  };
   const tidnamn = s => (TIDER.find(t => t.s === s) || TIDER[1]).namn;
   const lank = kod => `${location.origin}${location.pathname}?rum=${kod}`;
 
@@ -35,15 +45,16 @@
     jag: '',                 // mitt id; värdens id är rummets id
     lage: 'lobby',           // lobby, runda, resultat, slut
     spelare: [],             // [{ id, namn, farg }]
-    installningar: { karta: 'varlden', tid: 120 },
+    installningar: { lage: 'gatuvy', karta: 'varlden', urval: 'stor', tid: 120 },
     nr: 0,
     pulsTimer: 0,
     // Bara hos värden
     anslutningar: new Map(), // id -> anslutning
     senastHord: new Map(),   // id -> tidpunkt för senaste meddelandet
-    rundor: [],              // [{ plats, riktning }]
-    forberedd: null,         // kartan som rundor valdes för i lobbyn
-    gissningar: new Map(),   // id -> { lat, lng } eller null (ingen gissning)
+    rundor: [],              // [{ plats, riktning }], eller [{ plats, fraga }] i ett quizläge
+    forberedd: null,         // inställningarna som rundor valdes för i lobbyn
+    quiz: null,              // { lage, urval, info } när omgången är ett quizläge
+    gissningar: new Map(),   // id -> { lat, lng, ledtrad } eller null (ingen gissning)
     total: {},               // id -> poäng hittills
     skala: 1,
     deadline: 0,
@@ -106,7 +117,7 @@
     if (M.peer && !M.peer.destroyed) M.peer.destroy();
     Object.assign(M, {
       roll: null, peer: null, kod: '', jag: '', lage: 'lobby', spelare: [], nr: 0, pulsTimer: 0,
-      anslutningar: new Map(), senastHord: new Map(), rundor: [], forberedd: null, gissningar: new Map(), total: {},
+      anslutningar: new Map(), senastHord: new Map(), rundor: [], forberedd: null, quiz: null, gissningar: new Map(), total: {},
       deadline: 0, rundTimer: 0, senaste: null, vard: null, senastFranVard: 0,
     });
   }
@@ -127,7 +138,7 @@
     stang();
     M.roll = 'vard';
     M.kod = nyKod();
-    M.installningar = las('vilse.rumVal', M.installningar);
+    M.installningar = { ...M.installningar, ...las('vilse.rumVal', {}) };
     visaStatus('Skapar rum…');
 
     const peer = new Peer(PREFIX + M.kod, { debug: 1 });
@@ -234,30 +245,50 @@
     visaLobbyMeddelande(m);
   }
 
-  // Väljer omgångens platser redan i lobbyn och låter alla börja ladda den första
+  // Det som avgör vilka platser eller frågor en omgång får
+  function omgangsNyckel() {
+    const i = M.installningar;
+    return !arQuiz(i) ? `gatuvy|${i.karta}` : i.lage === 'hemma' ? `hemma|${i.urval}` : i.lage;
+  }
+
+  // Väljer omgångens platser (eller frågor) redan i lobbyn och låter alla börja ladda den första
   function forberedOmgang() {
     if (M.roll !== 'vard') return;
-    M.rundor = V.valjPlatser(M.installningar.karta, V.RUNDOR).map(plats => ({ plats, riktning: Math.floor(Math.random() * 360) }));
-    M.forberedd = M.installningar.karta;
+    const i = M.installningar;
+    if (arQuiz(i)) {
+      M.quiz = { lage: i.lage, urval: i.urval, info: V.quizInfo(i.lage, i.urval) };
+      M.rundor = V.quizRundor(i.lage, i.urval);
+    } else {
+      M.quiz = null;
+      M.rundor = V.valjPlatser(i.karta, V.RUNDOR).map(plats => ({ plats, riktning: Math.floor(Math.random() * 360) }));
+    }
+    M.forberedd = omgangsNyckel();
     skickaForladda(0);
   }
 
+  // Gatuvyn förladdas med platsen, ett quizläge med märket (frågor utan märke behöver inget)
   function forladdaMeddelande(nr) {
     const r = M.rundor[nr];
+    if (r.fraga) return { t: 'forladda', logga: r.fraga.logga };
     return { t: 'forladda', plats: [r.plats[0], r.plats[1]], riktning: r.riktning };
   }
   function skickaForladda(nr) {
     if (!M.rundor[nr]) return;
     const m = forladdaMeddelande(nr);
+    if (m.logga === '') return;
     skickaTillAlla(m);
-    V.forladda(m.plats, m.riktning);
+    forladdaHar(m);
+  }
+  function forladdaHar(m) {
+    if (Array.isArray(m.plats)) V.forladda(m.plats, m.riktning);
+    else if (m.logga) V.quizForladda(m.logga);
   }
 
   function startaOmgang() {
     if (M.roll !== 'vard') return;
-    if (!M.rundor.length || M.forberedd !== M.installningar.karta) forberedOmgang();
+    if (!M.rundor.length || M.forberedd !== omgangsNyckel()) forberedOmgang();
     M.forberedd = null;
-    M.skala = V.skalaForKarta(M.installningar.karta);
+    M.skala = M.quiz ? 1 : V.skalaForKarta(M.installningar.karta);
     M.total = Object.fromEntries(M.spelare.map(s => [s.id, 0]));
     M.nr = 0;
     nyRunda();
@@ -273,15 +304,17 @@
     visaRunda(rundMeddelande(M.jag));
   }
 
-  // Platsens namn skickas först med resultatet, så att det inte går att fuska fram
+  // Platsens namn skickas först med resultatet, så att det inte går att fuska fram.
+  // I ett quizläge skickas bara frågan, inte var svaret ligger.
   function rundMeddelande(id) {
     const r = M.rundor[M.nr];
-    return {
-      t: 'runda', nr: M.nr, antal: M.rundor.length, karta: M.installningar.karta,
-      plats: [r.plats[0], r.plats[1]], riktning: r.riktning,
+    const m = {
+      t: 'runda', nr: M.nr, antal: M.rundor.length,
       kvarMs: Math.max(0, M.deadline - Date.now()), total: M.total[id] || 0,
       gissat: M.gissningar.size, av: M.spelare.length,
     };
+    if (M.quiz) return { ...m, lage: M.quiz.lage, urval: M.quiz.urval, fraga: r.fraga };
+    return { ...m, karta: M.installningar.karta, plats: [r.plats[0], r.plats[1]], riktning: r.riktning };
   }
 
   function gissatStatus() {
@@ -291,7 +324,7 @@
   function vardGissning(id, m) {
     if (M.lage !== 'runda' || m.nr !== M.nr || M.gissningar.has(id)) return;
     const giltig = Number.isFinite(m.lat) && Number.isFinite(m.lng);
-    M.gissningar.set(id, giltig ? { lat: m.lat, lng: m.lng } : null);
+    M.gissningar.set(id, giltig ? { lat: m.lat, lng: m.lng, ledtrad: !!m.ledtrad } : null);
     const status = gissatStatus();
     skickaTillAlla(status);
     visaGissat(status);
@@ -310,12 +343,15 @@
     const rader = M.spelare.map(s => {
       const g = M.gissningar.get(s.id);
       const km = g ? V.avstandKm(g.lat, g.lng, lat, lng) : null;
-      const poang = g ? V.poangFor(km, M.skala) : 0;
+      // I quizlägena ger ledtråden halva poängen, precis som när man spelar ensam
+      const ledtrad = !!(M.quiz && g && g.ledtrad);
+      const poang = !g ? 0 : M.quiz ? Math.round(V.poangQuiz(km, M.quiz.info.quiz.poang) * (ledtrad ? 0.5 : 1)) : V.poangFor(km, M.skala);
       M.total[s.id] = (M.total[s.id] || 0) + poang;
-      return { id: s.id, namn: s.namn, farg: s.farg, lat: g ? g.lat : null, lng: g ? g.lng : null, km, poang, total: M.total[s.id] };
+      return { id: s.id, namn: s.namn, farg: s.farg, lat: g ? g.lat : null, lng: g ? g.lng : null, km, poang, ledtrad, total: M.total[s.id] };
     }).sort((a, b) => b.poang - a.poang || b.total - a.total);
     M.lage = 'resultat';
     M.senaste = { t: 'resultat', nr: M.nr, antal: M.rundor.length, plats: [lat, lng, ort, land], rader };
+    if (M.quiz) Object.assign(M.senaste, { lage: M.quiz.lage, urval: M.quiz.urval, fraga: r.fraga });
     skickaTillAlla(M.senaste);
     visaResultat(M.senaste);
     skickaForladda(M.nr + 1);
@@ -401,7 +437,7 @@
     switch (m.t) {
       case 'valkommen': M.jag = m.du; visaStatus(''); break;
       case 'lobby': visaLobbyMeddelande(m); break;
-      case 'forladda': if (Array.isArray(m.plats)) V.forladda(m.plats, m.riktning); break;
+      case 'forladda': forladdaHar(m); break;
       case 'runda': visaRunda(m); break;
       case 'gissat': visaGissat(m); break;
       case 'resultat': visaResultat(m); break;
@@ -427,6 +463,7 @@
   function visaLobby() {
     if (V.S.lage !== 'lobby') {
       V.S.multi = false;
+      V.S.hemma = false;
       V.visaLage('lobby');
     }
     const vard = M.roll === 'vard';
@@ -443,22 +480,35 @@
     $('lobbyVard').hidden = !vard;
     $('lobbyGast').hidden = vard;
     if (vard) {
-      $('lobbyKarta').innerHTML = V.KARTOR.map(k => `<label class="chip">
-          <input type="radio" name="rumKarta" value="${k.id}" ${k.id === M.installningar.karta ? 'checked' : ''}><span>${k.namn}</span>
+      const i = M.installningar;
+      const chips = (namn, val, vald) => val.map(v => `<label class="chip">
+          <input type="radio" name="${namn}" value="${v.id}" ${v.id === vald ? 'checked' : ''}><span>${esc(v.namn)}</span>
         </label>`).join('');
+      const lage = arQuiz(i) ? i.lage : 'gatuvy';
+      $('lobbyLage').innerHTML = chips('rumLage', [{ id: 'gatuvy', namn: 'Gatuvy' }, ...V.quizLagen], lage);
+      $('lobbyKartaFalt').hidden = lage !== 'gatuvy';
+      $('lobbyUrvalFalt').hidden = lage !== 'hemma';
+      $('lobbyKarta').innerHTML = chips('rumKarta', V.KARTOR, i.karta);
+      $('lobbyUrval').innerHTML = chips('rumUrval', V.quizUrval, i.urval);
       $('lobbyTid').innerHTML = TIDER.map(t => `<label>
           <input type="radio" name="rumTid" value="${t.s}" ${t.s === M.installningar.tid ? 'checked' : ''}><span>${t.namn}</span>
         </label>`).join('');
       $('lobbyStart').textContent = M.spelare.length > 1 ? 'Starta spelet' : 'Starta ensam';
     } else {
-      $('lobbyGast').innerHTML = `<b>${esc(kartnamn(M.installningar.karta))}</b> · ${tidnamn(M.installningar.tid)} per runda<br>Väntar på att värden startar spelet…`;
+      $('lobbyGast').innerHTML = `<b>${esc(lagesnamn(M.installningar))}</b> · ${tidnamn(M.installningar.tid)} per runda<br>Väntar på att värden startar spelet…`;
     }
   }
+
+  // Quizläget som ett meddelande från värden gäller, eller null för gatuvy
+  const quizFor = m => (m.lage && V.quizLagen.some(l => l.id === m.lage) ? V.quizInfo(m.lage, m.urval) : null);
 
   function visaRunda(m) {
     M.lage = 'runda';
     M.nr = m.nr;
-    V.startaMultiRunda({ kartId: m.karta, nr: m.nr, antal: m.antal, plats: m.plats, riktning: m.riktning, kvarMs: m.kvarMs, total: m.total });
+    V.startaMultiRunda({
+      kartId: m.karta, quiz: quizFor(m), fraga: m.fraga, nr: m.nr, antal: m.antal,
+      plats: m.plats, riktning: m.riktning, kvarMs: m.kvarMs, total: m.total,
+    });
     visaGissat({ antal: m.gissat, av: m.av });
   }
 
@@ -471,12 +521,20 @@
     M.lage = 'resultat';
     const [lat, lng, ort, land] = m.plats;
     const vard = M.roll === 'vard';
+    // Den som kom in mitt i omgången har inte fått någon runda än, så läget ställs in här också
+    const quiz = quizFor(m);
+    V.S.multi = true;
+    V.S.hemma = !!quiz;
+    if (quiz) V.S.karta = { ...quiz, pool: [] };
     $('multiRundNr').textContent = `Runda ${m.nr + 1} av ${m.antal}`;
+    $('multiKlubb').hidden = !quiz;
+    if (quiz) V.fyllKlubbrad({ klubb: m.fraga }, $('multiKlubb'));
+    $('multiPlatsEtikett').textContent = quiz ? quiz.quiz.svar : 'Platsen:';
     $('multiPlats').textContent = `${ort}, ${land}`;
     $('multiLista').innerHTML = m.rader.map((r, i) => `<li class="${r.id === M.jag ? 'jag' : ''}">
         <span class="placering">${i + 1}</span>
         <span class="prick" style="background:${r.farg}" aria-hidden="true"></span>
-        <span class="spelarnamn">${esc(r.namn)}<small>${r.km == null ? 'ingen gissning' : `${V.fmtAvstand(r.km)} bort`}</small></span>
+        <span class="spelarnamn">${esc(r.namn)}<small>${r.km == null ? 'ingen gissning' : `${V.fmtAvstand(r.km)} bort${r.ledtrad ? ' · ledtråd' : ''}`}</small></span>
         <span class="poang">+${nf.format(r.poang)}<small>totalt ${nf.format(r.total)}</small></span>
       </li>`).join('');
     $('multiNasta').hidden = !vard;
@@ -490,6 +548,7 @@
 
   function visaSlut(m) {
     M.lage = 'slut';
+    V.S.multi = true;
     const vard = M.roll === 'vard';
     const [forsta, andra] = m.rader;
     $('multiVinnare').textContent = m.rader.length === 1
@@ -538,8 +597,8 @@
   }
 
   // ---------- Kopplingar till spel.js ----------
-  V.multiGissa = gissning => {
-    const m = { t: 'gissning', nr: M.nr, lat: gissning ? gissning.lat : null, lng: gissning ? gissning.lng : null };
+  V.multiGissa = (gissning, ledtrad) => {
+    const m = { t: 'gissning', nr: M.nr, lat: gissning ? gissning.lat : null, lng: gissning ? gissning.lng : null, ledtrad: !!ledtrad };
     if (M.roll === 'vard') vardGissning(M.jag, m);
     else skicka(M.vard, m);
   };
@@ -556,11 +615,12 @@
 
   $('lobby').addEventListener('change', e => {
     if (M.roll !== 'vard') return;
-    if (e.target.name === 'rumKarta') M.installningar = { ...M.installningar, karta: e.target.value };
-    if (e.target.name === 'rumTid') M.installningar = { ...M.installningar, tid: Number(e.target.value) };
+    const falt = { rumLage: 'lage', rumKarta: 'karta', rumUrval: 'urval', rumTid: 'tid' }[e.target.name];
+    if (!falt) return;
+    M.installningar = { ...M.installningar, [falt]: falt === 'tid' ? Number(e.target.value) : e.target.value };
     spara('vilse.rumVal', M.installningar);
     skickaLobby();
-    if (e.target.name === 'rumKarta') forberedOmgang();   // ny karta, nya platser att förladda
+    if (falt !== 'tid') forberedOmgang();   // nytt läge eller ny karta, nya platser att förladda
   });
   $('lobbyStart').addEventListener('click', startaOmgang);
   $('lobbyLamna').addEventListener('click', lamna);

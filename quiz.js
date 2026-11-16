@@ -159,21 +159,40 @@
     return valda;
   }
 
-  let senasteStart = null;
-  function starta(lage, urval, tid) {
+  // Lägets namn, startutsnitt och allt spel.js behöver veta om det
+  function info(lage, urval) {
     const hemma = lage.id === 'hemma';
-    const pool = hemma ? KLUBBAR.filter(urval.filter) : lage.pool();
-    const valda = valjFragor(lage, pool);
-    senasteStart = [lage, urval, tid];
-    spara('vilse.hemmaVal', { lage: lage.id, urval: urval.id, tid });
-    V.startaHemma({
+    return {
       id: rekordNyckel(lage, urval),
       namn: hemma ? urval.namn : lage.namn,
       vy: hemma ? urval.vy : 'varlden',
-      tid,
       quiz: { lage, etikett: lage.etikett || 'Quiz', poang: lage.poang, zoom: lage.zoom, omdomen: lage.omdomen || OMDOME, ...lage.texter },
+    };
+  }
+  const fragorFor = (lage, urval) => valjFragor(lage, lage.id === 'hemma' ? KLUBBAR.filter(urval.filter) : lage.pool());
+
+  let senasteStart = null;
+  function starta(lage, urval, tid) {
+    const valda = fragorFor(lage, urval);
+    senasteStart = [lage, urval, tid];
+    spara('vilse.hemmaVal', { lage: lage.id, urval: urval.id, tid });
+    V.startaHemma({
+      ...info(lage, urval),
+      tid,
       rundor: valda.map(k => ({ plats: [k.lat, k.lng, k.svar, k.land], klubb: k, namnVisat: false })),
     });
+  }
+
+  // ---------- Rum med vänner (multi.js) ----------
+  // Värden väljer frågorna och skickar dem en i taget. Bara det som syns i frågan och ledtråden skickas,
+  // så att svaret inte går att läsa ut i förväg.
+  const hittaLage = id => LAGEN.find(l => l.id === id) || LAGEN[0];
+  const hittaUrval = id => URVAL.find(u => u.id === id) || URVAL[0];
+  function quizRundor(lageId, urvalId) {
+    return fragorFor(hittaLage(lageId), hittaUrval(urvalId)).map(k => ({
+      plats: [k.lat, k.lng, k.svar, k.land],
+      fraga: { namn: k.namn, logga: k.logga || '', ar: k.ar || '', land: k.land },
+    }));
   }
 
   // ---------- Frågepanelen ----------
@@ -226,7 +245,7 @@
 
   function visaLedtrad() {
     const runda = S.rundor[S.nr];
-    if (!S.hemma || S.lage !== 'spel' || !runda || runda.namnVisat || $('klubbVisaNamn').hidden) return;
+    if (!S.hemma || S.lage !== 'spel' || S.multiGissat || !runda || runda.namnVisat || $('klubbVisaNamn').hidden) return;
     runda.namnVisat = true;
     $('klubbNamn').hidden = false;
     $('klubbVisaNamn').hidden = true;
@@ -254,6 +273,11 @@
     visaKlubb,
     fyllKlubbrad,
     hemmaIgen: () => { if (senasteStart) starta(...senasteStart); },
+    quizLagen: LAGEN.map(l => ({ id: l.id, namn: l.namn })),
+    quizUrval: URVAL.map(u => ({ id: u.id, namn: u.namn })),
+    quizInfo: (lageId, urvalId) => info(hittaLage(lageId), hittaUrval(urvalId)),
+    quizRundor,
+    quizForladda: fil => { if (fil && !trasiga.has(fil)) new Image().src = loggaUrl(fil, 480); },
   });
 
   byggFlik();
