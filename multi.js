@@ -26,6 +26,22 @@
   const TYST_MS = 16000;      // så länge utan livstecken innan någon räknas som borta
   const MARGINAL_MS = 1500;   // extra tid för gissningar som är på väg när tiden tar slut
   const SISTA_MS = 15000;     // så lång tid de andra har kvar när någon har gissat
+  const FORSOK_MS = 7000;     // så länge gästen väntar på värdens svar innan den försöker igen
+  const GE_UPP_MS = 22000;    // så länge gästen försöker innan den ger upp
+
+  // Servrar som hjälper webbläsarna att hitta en väg till varandra. STUN räcker när någon av dem kan nås
+  // direkt. Annars (många mobilnät och skol- eller jobbnät) behövs en TURN-server som skickar trafiken
+  // vidare. PeerJS gratis TURN-servrar är med men svarar inte alltid; lägg till en egen här om det behövs.
+  const PEER_VAL = {
+    debug: 1,
+    config: {
+      iceServers: [
+        { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
+      ],
+    },
+  };
 
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const kartnamn = id => (V.KARTOR.find(k => k.id === id) || V.KARTOR[0]).namn;
@@ -142,7 +158,7 @@
     M.installningar = { ...M.installningar, ...las('vilse.rumVal', {}) };
     visaStatus('Skapar rum…');
 
-    const peer = new Peer(PREFIX + M.kod, { debug: 1 });
+    const peer = new Peer(PREFIX + M.kod, PEER_VAL);
     M.peer = peer;
     peer.on('open', id => {
       M.jag = id;
@@ -166,8 +182,13 @@
 
   function taEmotGast(anslutning) {
     anslutning.on('data', meddelande => vardTarEmot(anslutning, meddelande));
-    anslutning.on('close', () => tappaSpelare(anslutning.peer));
-    anslutning.on('error', () => tappaSpelare(anslutning.peer));
+    // En gäst som har försökt flera gånger kan ha en gammal anslutning som stängs efter att en ny har öppnats
+    const tappa = () => {
+      const nu = M.anslutningar.get(anslutning.peer);
+      if (!nu || nu === anslutning) tappaSpelare(anslutning.peer);
+    };
+    anslutning.on('close', tappa);
+    anslutning.on('error', tappa);
   }
 
   function vardTarEmot(anslutning, m) {
@@ -412,32 +433,73 @@
     M.kod = kod;
     visaStatus(`Ansluter till rum ${kod}…`);
 
-    const peer = new Peer({ debug: 1 });
+    const peer = new Peer(PEER_VAL);
     M.peer = peer;
-    let oppen = false;
-    const vantan = setTimeout(() => {
-      if (!oppen && M.peer === peer) tillbaka(`Fick ingen kontakt med rum ${kod}. Kontrollera koden och att värden har spelet öppet.`, true);
-    }, 15000);
+    // Hur långt anslutningen har kommit, så att felmeddelandet kan säga vad som gick fel:
+    // server (väntar på kopplingsservern), vard (väntar på att värden svarar), natverk (värden svarade,
+    // men webbläsarna hittar ingen väg till varandra)
+    let steg = 'server', oppen = false, forsok = 0;
+    const geUpp = setTimeout(() => {
+      if (oppen || M.peer !== peer) return;
+      // Har värden skickat sitt svar har rummet hittats, och då är det nätverket som stoppar anslutningen
+      if (harSvarat()) steg = 'natverk';
+      tillbaka(steg === 'server'
+        ? 'Kunde inte nå kopplingsservern. Kontrollera internetanslutningen och försök igen.'
+        : steg === 'vard'
+          ? `Rum ${kod} svarar inte. Kontrollera koden, och be värden ha spelet öppet i en flik som syns (inte i viloläge) och försöka igen.`
+          : `Hittade rum ${kod}, men nätverket stoppar anslutningen till värden. Det händer på vissa mobilnät och skol- eller jobbnät. Prova ett annat nätverk, till exempel samma wifi som värden.`, true);
+    }, GE_UPP_MS);
 
-    peer.on('open', () => {
+    const harSvarat = () => !!(M.vard && M.vard.peerConnection && M.vard.peerConnection.remoteDescription);
+
+    // Ansluter till värden, och försöker igen om värden inte har svarat efter en stund
+    function koppla() {
+      forsok++;
       const anslutning = peer.connect(PREFIX + kod, { reliable: true, serialization: 'json' });
       M.vard = anslutning;
+      const igen = setTimeout(() => {
+        if (oppen || M.vard !== anslutning || M.peer !== peer || forsok >= 3) return;
+        if (harSvarat()) steg = 'natverk';
+        anslutning.removeAllListeners();
+        anslutning.close();
+        koppla();
+      }, FORSOK_MS);
+      anslutning.on('iceStateChanged', tillstand => {
+        if (M.vard === anslutning && !oppen && tillstand !== 'new') steg = 'natverk';
+      });
       anslutning.on('open', () => {
+        if (M.vard !== anslutning) return;
         oppen = true;
-        clearTimeout(vantan);
+        clearTimeout(igen);
+        clearTimeout(geUpp);
         M.senastFranVard = Date.now();
         skicka(anslutning, { t: 'hej', namn });
         M.pulsTimer = setInterval(gastPuls, PULS_MS);
       });
       anslutning.on('data', m => { M.senastFranVard = Date.now(); gastTarEmot(m); });
-      anslutning.on('close', () => { if (M.vard === anslutning) tillbaka('Värden lämnade rummet.'); });
-      anslutning.on('error', () => { if (M.vard === anslutning) tillbaka('Anslutningen till värden bröts.', true); });
+      anslutning.on('close', () => { if (M.vard === anslutning && oppen) tillbaka('Värden lämnade rummet.'); });
+      anslutning.on('error', () => {
+        if (M.vard !== anslutning) return;
+        if (oppen) tillbaka('Anslutningen till värden bröts.', true);
+        else steg = 'natverk';   // ICE misslyckades; försöket görs om eller ges upp av timrarna
+      });
+    }
+
+    peer.on('open', () => {
+      steg = 'vard';
+      koppla();
     });
     peer.on('error', err => {
       if (M.peer !== peer) return;
-      clearTimeout(vantan);
-      if (err.type === 'peer-unavailable') tillbaka(`Hittade inget rum med koden ${kod}. Kontrollera koden och att värden har rummet öppet.`, true);
-      else tillbaka(peerFel(err), true);
+      if (err.type === 'peer-unavailable') {
+        clearTimeout(geUpp);
+        tillbaka(`Hittade inget rum med koden ${kod}. Kontrollera koden och att värden har rummet öppet.`, true);
+      } else if (!oppen && (err.type === 'negotiation-failed' || err.type === 'webrtc')) {
+        steg = 'natverk';
+      } else {
+        clearTimeout(geUpp);
+        tillbaka(peerFel(err), true);
+      }
     });
   }
 
@@ -652,6 +714,12 @@
   $('multiNasta').addEventListener('click', vardNasta);
   $('multiIgen').addEventListener('click', tillLobbyn);
   $('multiLamnaSlut').addEventListener('click', lamna);
+
+  // Har värdens flik legat i bakgrunden kan kontakten med kopplingsservern ha tappats, och då hittar
+  // nya gäster inte rummet. Återanslut så fort fliken syns igen.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && M.roll === 'vard' && M.peer && M.peer.disconnected && !M.peer.destroyed) M.peer.reconnect();
+  });
 
   // Säg till de andra när fliken stängs, så att de inte behöver vänta på att anslutningen tystnar
   window.addEventListener('pagehide', () => {

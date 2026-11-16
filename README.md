@@ -64,7 +64,7 @@ Varje land väljs lika ofta, oavsett hur många platser det har. Hongkong, Svalb
 - Alla får samma 5 platser (eller frågor) samtidigt, med samma startriktning i gatuvyn. Rundan slutar när alla har gissat eller tiden är ute. När någon har gissat har de andra högst 15 sekunder kvar.
 - Efter varje runda visas allas gissningar på kartan i var sin färg, med poänglista. Efter 5 rundor visas slutresultatet och värden kan starta en ny omgång.
 
-Tekniskt: värdens webbläsare håller i omgången, och de andra ansluter direkt till den med WebRTC via [PeerJS](https://peerjs.com/). PeerJS gratis kopplingsserver används bara för att webbläsarna ska hitta varandra, och dess reservservrar (TURN) hjälper när en direktanslutning inte går, till exempel på vissa mobilnät. Därför behöver värden ha spelet öppet tills omgången är slut. Koden finns i `multi.js`.
+Tekniskt: värdens webbläsare håller i omgången, och de andra ansluter direkt till den med WebRTC via [PeerJS](https://peerjs.com/). PeerJS gratis kopplingsserver används bara för att webbläsarna ska hitta varandra. När en direktanslutning inte går (många mobilnät och skol- eller jobbnät) behövs en reservserver (TURN). PeerJS gratis TURN-servrar är med i `PEER_VAL` i `multi.js` men svarar inte alltid, och då går det inte att ansluta från sådana nät. En egen TURN-server läggs till i samma lista. Gästen försöker ansluta tre gånger och säger sedan om det var kopplingsservern, värden eller nätverket som inte svarade. Därför behöver värden ha spelet öppet tills omgången är slut. Koden finns i `multi.js`.
 
 ## Ledtrådarna och licensen
 
