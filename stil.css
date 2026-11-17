@@ -126,6 +126,7 @@ body[data-lage="lobby"] .vy-ram { filter: blur(7px) saturate(1.15); transform: s
   background: linear-gradient(90deg, rgba(10, 12, 14, .78), rgba(10, 12, 14, .35) 55%, rgba(10, 12, 14, .05));
 }
 .start-panel {
+  position: relative;
   width: min(500px, 100%);
   display: grid; gap: 22px;
   background: var(--papper);
@@ -688,3 +689,6 @@ body.hemma .vy { display: none; }
   background: var(--tryck); color: var(--papper); font: 700 16px/1.2 var(--font-rubrik); letter-spacing: .02em; text-align: center;
   box-shadow: 0 6px 18px rgba(0, 0, 0, .28); pointer-events: none;
 }
+
+/* Språkval uppe till höger på startsidan */
+.sprak-knapp { position: absolute; top: 14px; right: 18px; font-size: 14px; }

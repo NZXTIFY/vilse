@@ -5,7 +5,7 @@
 (() => {
   'use strict';
   const V = window.Vilse;
-  const { S, $, nf, las, spara, blanda, RUNDOR, TIDER, esc } = V;
+  const { S, $, nf, las, spara, blanda, RUNDOR, TIDER, esc, tr, dn } = V;
 
   // En fråga: namn (det som visas eller avslöjas), svar (platsens namn), var den ligger, och ibland märke eller årtal
   const KLUBBAR = window.KLUBBAR.map(k => ({
@@ -70,6 +70,13 @@
       poang: { full: 10, a: 120, b: 1200 }, zoom: 8,
       texter: { overrad: 'Vilken är huvudstaden?', fraga: 'Sätt nålen på landets huvudstad', fran: 'från huvudstaden', svar: 'Huvudstad:', karta: 'Var ligger huvudstaden?' },
     },
+    {
+      // Hela poängen så länge nålen hamnar i rätt stad (inom 25 km från dess mitt)
+      id: 'spelare', namn: 'Fotbollsspelare', typ: 'marke', foto: true, pool: () => fragor('spelare', 'logga'),
+      text: 'Du får se ett foto på en känd fotbollsspelare. Sätt nålen i staden där spelaren är född. Rätt stad ger full pott.',
+      poang: { full: 25, a: 150, b: 1500 }, zoom: 9,
+      texter: { overrad: 'Var är spelaren född?', fraga: 'Sätt nålen på spelarens hemstad', visa: 'Visa spelarens namn', fran: 'från hemstaden', svar: 'Född i:', karta: 'Var är spelaren född?' },
+    },
   ];
 
   // Hemmaplans urval. vy: kartans startutsnitt, där 'varlden' visar hela den bebodda världen.
@@ -88,6 +95,18 @@
     { id: 'svart', namn: 'Svårt', filter: k => !k.namnIMarket || !!MASKER[k.namn] },
   ];
   const klubbarFor = (urval, svar) => KLUBBAR.filter(k => urval.filter(k) && svar.filter(k));
+  // Lägenas, urvalens och svårighetsgradernas texter visas på det valda språket (sprak.js)
+  for (const l of LAGEN) {
+    l.namn = tr(l.namn);
+    l.text = tr(l.text);
+    if (l.etikett) l.etikett = tr(l.etikett);
+    for (const k of Object.keys(l.texter)) l.texter[k] = tr(l.texter[k]);
+  }
+  OMDOME.forEach((o, i) => { OMDOME[i] = tr(o); });
+  OMDOME_FOTBOLL.forEach((o, i) => { OMDOME_FOTBOLL[i] = tr(o); });
+  for (const u of URVAL) { u.namn = tr(u.namn); u.text = tr(u.text); }
+  for (const s of SVAR) s.namn = tr(s.namn);
+
   const rekordNyckel = (lage, urval, svar) => lage.id !== 'hemma' ? `quiz-${lage.id}`
     : `hemma-${urval.id}${svar.id === 'normal' ? '' : `-${svar.id}`}`;
 
@@ -140,12 +159,12 @@
     $('hemmaUrval').innerHTML = URVAL.map(u => {
       const antal = klubbarFor(u, svar).length;
       const r = rekord[rekordNyckel(hemma, u, svar)];
-      const best = r ? `rekord <b>${nf.format(r)}</b>` : `<b>&nbsp;</b>`;
+      const best = r ? `${tr('rekord')} <b>${nf.format(r)}</b>` : `<b>&nbsp;</b>`;
       return `<label class="kartrad">
         <input type="radio" name="hemmaurval" value="${u.id}" ${u.id === vald ? 'checked' : ''}>
         <span class="ring" aria-hidden="true"></span>
         <span class="kartrad-namn">${u.namn}</span>
-        <span class="kartrad-info">${best}${antal} klubbar</span>
+        <span class="kartrad-info">${best}${tr('{antal} klubbar', { antal })}</span>
         <span class="kartrad-text">${u.text}</span>
       </label>`;
     }).join('');
@@ -156,13 +175,13 @@
     const lage = valtLage();
     const hemma = lage.id === 'hemma';
     $('quizText').textContent = hemma && valdSvar().id === 'svart'
-      ? `${lage.text} Svårt: bara märken där klubbens namn och ort inte står.`
+      ? `${lage.text} ${tr('Svårt: klubbens namn och ort syns inte i märkena.')}`
       : lage.text;
     $('hemmaKlubbar').hidden = !hemma;
     $('hemmaSvarFalt').hidden = !hemma;
     const r = las('vilse.rekord', {})[`quiz-${lage.id}`];
     $('quizInfo').hidden = hemma;
-    if (!hemma) $('quizInfo').innerHTML = `${lage.pool().length} frågor${r ? ` · rekord <b>${nf.format(r)}</b>` : ''}`;
+    if (!hemma) $('quizInfo').innerHTML = `${tr('{antal} frågor', { antal: lage.pool().length })}${r ? ` · ${tr('rekord')} <b>${nf.format(r)}</b>` : ''}`;
   }
 
   // ---------- Omgången ----------
@@ -192,7 +211,7 @@
       id: rekordNyckel(lage, urval, svar),
       namn: hemma ? `${urval.namn}${svar.id === 'normal' ? '' : ` · ${svar.namn}`}` : lage.namn,
       vy: hemma ? urval.vy : 'varlden',
-      quiz: { lage, maska: hemma && svar.id === 'svart', etikett: lage.etikett || 'Quiz', poang: lage.poang, zoom: lage.zoom, omdomen: lage.omdomen || OMDOME, ...lage.texter },
+      quiz: { lage, maska: hemma && svar.id === 'svart', etikett: lage.etikett || tr('Quiz'), poang: lage.poang, zoom: lage.zoom, omdomen: lage.omdomen || OMDOME, ...lage.texter },
     };
   }
   const fragorFor = (lage, urval, svar) => valjFragor(lage, lage.id === 'hemma' ? klubbarFor(urval, svar) : lage.pool());
@@ -227,11 +246,11 @@
   function visaSkold(k) {
     $('klubbLogga').innerHTML = `<div class="skold">
         <svg viewBox="0 0 100 120" aria-hidden="true"><path d="M5 5h90v58c0 30-22 45-45 53C27 108 5 93 5 63z"/></svg>
-        <span>${esc(k.namn)}</span>
+        <span>${esc(dn(k.namn))}</span>
       </div>`;
     $('klubbNamn').hidden = true;
     $('klubbVisaNamn').hidden = true;
-    $('klubbInfo').textContent = 'Märket gick inte att visa, så du får namnet i stället.';
+    $('klubbInfo').textContent = tr('Märket gick inte att visa, så du får namnet i stället.');
   }
 
   function visaKlubb(runda, nasta) {
@@ -243,18 +262,18 @@
     $('klubbLogga').classList.toggle('klubb-text', lage.typ === 'text');
     $('klubbNamn').hidden = true;
     $('klubbInfo').textContent = '';
-    $('klubbVisaNamn').textContent = `${q.visa || ''} (halva poängen)`;
+    $('klubbVisaNamn').textContent = `${q.visa || ''} ${tr('(halva poängen)')}`;
 
     if (lage.typ === 'text') {
-      $('klubbLogga').innerHTML = `<div class="fragekort"><strong>${esc(k.namn)}</strong>${k.ar ? `<span>${esc(k.ar)}</span>` : ''}</div>`;
-      $('klubbNamn').textContent = `Ligger i: ${k.land}`;
+      $('klubbLogga').innerHTML = `<div class="fragekort"><strong>${esc(dn(k.namn))}</strong>${k.ar ? `<span>${esc(k.ar)}</span>` : ''}</div>`;
+      $('klubbNamn').textContent = tr('Ligger i: {land}', { land: dn(k.land) });
       $('klubbVisaNamn').hidden = !lage.ledtrad;
       return;
     }
-    $('klubbNamn').textContent = k.namn;
+    $('klubbNamn').textContent = dn(k.namn);
     if (k.logga && !trasiga.has(k.logga)) {
       const bild = new Image();
-      bild.alt = 'Märke';   // namnet ska inte avslöjas för den som använder skärmläsare heller
+      bild.alt = lage.foto ? tr('Foto') : tr('Märke');   // namnet ska inte avslöjas för den som använder skärmläsare heller
       bild.referrerPolicy = 'no-referrer';
       bild.onerror = () => {
         trasiga.add(k.logga);
@@ -284,7 +303,7 @@
     runda.namnVisat = true;
     $('klubbNamn').hidden = false;
     $('klubbVisaNamn').hidden = true;
-    $('klubbInfo').textContent = 'Ledtråd använd: du får halva poängen den här rundan.';
+    $('klubbInfo').textContent = tr('Ledtråd använd: du får halva poängen den här rundan.');
   }
 
   // Frågan på resultatkortet: märke och namn, med länk till bildens sida (där upphovsperson och licens står)
@@ -292,8 +311,8 @@
     const k = runda.klubb;
     const harBild = k.logga && !trasiga.has(k.logga);
     el.innerHTML = `${harBild ? `<img src="${esc(loggaUrl(k.logga, 96))}" alt="">` : ''}
-      <strong>${esc(k.namn)}${k.ar ? ` <small>${esc(k.ar)}</small>` : ''}</strong>
-      ${harBild ? `<a href="${esc(loggaSida(k.logga))}" target="_blank" rel="noopener">Märke: ${loggaKallnamn(k.logga)}</a>` : ''}`;
+      <strong>${esc(dn(k.namn))}${k.ar ? ` <small>${esc(k.ar)}</small>` : ''}</strong>
+      ${harBild ? `<a href="${esc(loggaSida(k.logga))}" target="_blank" rel="noopener">${S.karta.quiz && S.karta.quiz.lage.foto ? tr('Foto') : tr('Märke')}: ${loggaKallnamn(k.logga)}</a>` : ''}`;
     const bild = el.querySelector('img');
     if (bild) bild.onerror = () => bild.remove();
   }

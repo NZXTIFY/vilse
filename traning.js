@@ -4,8 +4,13 @@
   'use strict';
 
   const V = window.Vilse;
-  const { $, nf, las, spara, blanda } = V;
+  const { $, nf, las, spara, blanda, tr, dn } = V;
   const LT = window.LEDTRADAR;
+  // Ledtrådarnas texter på det valda språket: engelska finns i ledtradar-en.js, med samma nycklar
+  const LX = land => {
+    const en = window.SPRAK.en && window.LEDTRADAR_EN && window.LEDTRADAR_EN[land];
+    return en ? { ...LT[land], ...en } : LT[land];
+  };
 
   const DELAR = { eu: 'Europa', am: 'Amerika', as: 'Asien', af: 'Afrika', oc: 'Oceanien' };
   const OVNINGAR = [
@@ -24,12 +29,14 @@
     { id: 'svar', namn: 'Lättförväxlade' },
     { id: 'latt', namn: 'Blandade' },
   ];
+  for (const k of Object.keys(DELAR)) DELAR[k] = tr(DELAR[k]);
+  for (const o of [...OVNINGAR, ...OMRADEN, ...NIVAER]) { o.namn = tr(o.namn); if (o.text) o.text = tr(o.text); }
   const MAX_LEDTRADAR = 4;   // världsdel, körriktning, något unikt för landet, två fel svar borttagna
 
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const traningsland = p => p[5] || p[3];
   const plonkitUrl = land => `https://www.plonkit.net/${LT[land].plonkit}`;
-  const trafikText = land => (LT[land].trafik === 'vänster' ? 'Vänstertrafik' : 'Högertrafik');
+  const trafikText = land => (LT[land].trafik === 'vänster' ? tr('Vänstertrafik') : tr('Högertrafik'));
 
   // Platser per land (Hongkong, Svalbard m.fl. räknas som egna länder, som hos Plonk It)
   const platserPerLand = new Map();
@@ -40,7 +47,7 @@
     platserPerLand.get(land).push(p);
   }
   const spelbaraLander = [...platserPerLand.keys()];
-  const sorteraSv = lista => [...lista].sort((a, b) => a.localeCompare(b, 'sv'));
+  const sorteraSv = lista => [...lista].sort((a, b) => dn(a).localeCompare(dn(b), window.SPRAK.locale));
 
   // ---------- Statistik ----------
   // vilse.traning = { lander: { Sverige: { ratt, fel } }, par: { 'Sverige>Norge': antal }, iRadBasta }
@@ -104,7 +111,7 @@
 
     $('omradeVal').innerHTML = OMRADEN.map(o => {
       const avst = o.id === 'svaga' && !harStat;
-      return `<label class="chip${avst ? ' chip-av' : ''}" ${avst ? 'title="Svara på några platser först, så vet spelet vilka länder du missar"' : ''}>
+      return `<label class="chip${avst ? ' chip-av' : ''}" ${avst ? `title="${tr('Svara på några platser först, så vet spelet vilka länder du missar')}"` : ''}>
         <input type="radio" name="omrade" id="omrade-${o.id}" value="${o.id}" ${o.id === T.omrade.id ? 'checked' : ''} ${avst ? 'disabled' : ''}>
         <span>${o.namn}</span>
       </label>`;
@@ -210,9 +217,9 @@
     $('landLedtrad').innerHTML = '';
     $('jamfor').hidden = true;
     $('ledtradKnapp').disabled = false;
-    $('ledtradKnapp').textContent = `Ledtråd (${MAX_LEDTRADAR} kvar)`;
+    $('ledtradKnapp').textContent = tr('Ledtråd ({kvar} kvar)', { kvar: MAX_LEDTRADAR });
     $('landVal').innerHTML = T.alternativ.map((l, i) => `<button class="land-alt" type="button" data-land="${esc(l)}">
-        <span class="land-nr" aria-hidden="true">${i + 1}</span><span>${esc(l)}</span>
+        <span class="land-nr" aria-hidden="true">${i + 1}</span><span>${esc(dn(l))}</span>
       </button>`).join('');
     uppdateraTraningsHud();
 
@@ -228,7 +235,7 @@
   }
 
   function uppdateraTraningsHud() {
-    $('hudOmrade').textContent = T.egnaLander ? T.egnaLander[0] : T.omrade.namn;
+    $('hudOmrade').textContent = T.egnaLander ? dn(T.egnaLander[0]) : T.omrade.namn;
     $('hudPlatsNr').textContent = T.nr;
     $('hudIRad').textContent = T.iRad;
     $('hudTraff').textContent = T.totalt ? `${Math.round((T.ratt / T.totalt) * 100)} %` : '–';
@@ -238,30 +245,30 @@
     if (T.svarat || T.ledtradar >= MAX_LEDTRADAR) return;
     T.ledtradar++;
     const rader = [];
-    if (T.ledtradar >= 1) rader.push(`Världsdel: <b>${DELAR[LT[T.land].del]}</b>`);
-    if (T.ledtradar >= 2) rader.push(`Trafik: <b>${trafikText(T.land).toLowerCase()}</b>`);
-    if (T.ledtradar >= 3) rader.push(`Unikt för landet: ${esc(LT[T.land].unikt)}`);
+    if (T.ledtradar >= 1) rader.push(`${tr('Världsdel:')} <b>${DELAR[LT[T.land].del]}</b>`);
+    if (T.ledtradar >= 2) rader.push(`${tr('Trafik:')} <b>${trafikText(T.land).toLowerCase()}</b>`);
+    if (T.ledtradar >= 3) rader.push(`${tr('Unikt för landet:')} ${esc(LX(T.land).unikt)}`);
     if (T.ledtradar >= 4) {
       // Ta bort två felaktiga alternativ
       const fel = blanda([...$('landVal').querySelectorAll('.land-alt')].filter(b => b.dataset.land !== T.land)).slice(0, 2);
       fel.forEach(b => { b.disabled = true; b.classList.add('bort'); });
-      rader.push('Två fel alternativ är borttagna.');
+      rader.push(tr('Två fel alternativ är borttagna.'));
     }
     $('landLedtrad').innerHTML = rader.join('<br>');
     $('landLedtrad').hidden = false;
     const kvar = MAX_LEDTRADAR - T.ledtradar;
-    $('ledtradKnapp').textContent = kvar ? `Ledtråd (${kvar} kvar)` : 'Inga ledtrådar kvar';
+    $('ledtradKnapp').textContent = kvar ? tr('Ledtråd ({kvar} kvar)', { kvar }) : tr('Inga ledtrådar kvar');
     $('ledtradKnapp').disabled = !kvar;
   }
 
   function oppnaJamfor() {
     T.jamfort = true;
     $('jamforLista').innerHTML = T.alternativ.map(l => `<article class="jamfor-kort">
-        <h3>${esc(l)}</h3>
+        <h3>${esc(dn(l))}</h3>
         <p class="landkort-meta">${DELAR[LT[l].del]} · ${trafikText(l).toLowerCase()}</p>
         ${uniktHtml(l)}
         ${tipsHtml(l)}
-        ${T.svarat ? '' : `<button class="knapp knapp-bana knapp-liten" type="button" data-svara="${esc(l)}">Svara ${esc(l)}</button>`}
+        ${T.svarat ? '' : `<button class="knapp knapp-bana knapp-liten" type="button" data-svara="${esc(l)}">${tr('Svara {land}', { land: esc(dn(l)) })}</button>`}
       </article>`).join('');
     $('jamfor').hidden = false;
     $('stangJamfor').focus({ preventScroll: true });
@@ -298,20 +305,20 @@
   let svarKarta = null, svarMarkor = null;
   function visaSvar(gissat, ratt) {
     const land = T.land;
-    $('svarRubrik').textContent = ratt ? 'Rätt' : `Fel, du svarade ${gissat}`;
+    $('svarRubrik').textContent = ratt ? tr('Rätt') : tr('Fel, du svarade {land}', { land: dn(gissat) });
     $('svarRubrik').classList.toggle('ar-ratt', ratt);
     $('svarRubrik').classList.toggle('ar-fel', !ratt);
-    $('svarLand').textContent = land;
-    $('svarPlats').textContent = `${T.plats[2]}${T.plats[3] !== land ? `, ${T.plats[3]}` : ''}`;
+    $('svarLand').textContent = dn(land);
+    $('svarPlats').textContent = `${dn(T.plats[2])}${T.plats[3] !== land ? `, ${dn(T.plats[3])}` : ''}`;
 
     // Vid fel svar: hur länderna skiljer sig åt, helst beskrivet från det gissade landets sida
-    const skilj = !ratt && (LT[gissat]?.skilj?.[land] || LT[land].skilj?.[gissat]);
+    const skilj = !ratt && ((LT[gissat] && LX(gissat).skilj?.[land]) || LX(land).skilj?.[gissat]);
     $('svarSkilj').hidden = !skilj;
-    if (skilj) $('svarSkilj').innerHTML = `<p class="skilj-rubrik">${esc(land)} eller ${esc(gissat)}?</p><p>${esc(skilj)}</p>`;
+    if (skilj) $('svarSkilj').innerHTML = `<p class="skilj-rubrik">${tr('{a} eller {b}?', { a: esc(dn(land)), b: esc(dn(gissat)) })}</p><p>${esc(skilj)}</p>`;
 
-    $('svarTips').innerHTML = `${uniktHtml(land)}<p class="ledtradar-rubrik">Leta efter i ${esc(land)}</p>${tipsHtml(land)}`;
+    $('svarTips').innerHTML = `${uniktHtml(land)}<p class="ledtradar-rubrik">${tr('Leta efter i {land}', { land: esc(dn(land)) })}</p>${tipsHtml(land)}`;
     $('svarPlonkit').href = plonkitUrl(land);
-    $('svarPlonkit').textContent = `Mer om ${land} på Plonk It ↗`;
+    $('svarPlonkit').textContent = tr('Mer om {land} på Plonk It ↗', { land: dn(land) });
     $('landFraga').hidden = true;
     $('landSvar').hidden = false;
     $('landPanel').scrollTop = 0;
@@ -330,19 +337,19 @@
 
   // Det som är mest unikt för landet, framhävt ovanför de övriga ledtrådarna
   function uniktHtml(land) {
-    return LT[land].unikt ? `<p class="unikt"><span>Unikt</span>${esc(LT[land].unikt)}</p>` : '';
+    return LX(land).unikt ? `<p class="unikt"><span>${tr('Unikt')}</span>${esc(LX(land).unikt)}</p>` : '';
   }
 
   function tipsHtml(land) {
-    return `<dl class="tips">${LT[land].tips.map(([kat, text]) => `<dt>${esc(kat)}</dt><dd>${esc(text)}</dd>`).join('')}</dl>`;
+    return `<dl class="tips">${LX(land).tips.map(([kat, text]) => `<dt>${esc(kat)}</dt><dd>${esc(text)}</dd>`).join('')}</dl>`;
   }
 
   // Resultatkortet i Var exakt? får landets ledtrådar
   V.ledtradarFor = (plats, el) => {
     const land = traningsland(plats);
     if (!LT[land]) { el.innerHTML = ''; return; }
-    el.innerHTML = `${uniktHtml(land)}<p class="ledtradar-rubrik">Leta efter i ${esc(land)}</p>${tipsHtml(land)}
-      <a class="lank-knapp" href="${plonkitUrl(land)}" target="_blank" rel="noopener">Mer om ${esc(land)} på Plonk It ↗</a>`;
+    el.innerHTML = `${uniktHtml(land)}<p class="ledtradar-rubrik">${tr('Leta efter i {land}', { land: esc(dn(land)) })}</p>${tipsHtml(land)}
+      <a class="lank-knapp" href="${plonkitUrl(land)}" target="_blank" rel="noopener">${tr('Mer om {land} på Plonk It ↗', { land: esc(dn(land)) })}</a>`;
   };
   V.bytLandPlats = bytLandPlats;
 
@@ -372,10 +379,10 @@
   function oppnaBibliotek(landAttVisa) {
     stangSidor();
     $('bibliotek').hidden = false;
-    $('bibliotekDelar').innerHTML = [['alla', 'Alla världsdelar'], ...Object.entries(DELAR)].map(([id, namn]) => `<label class="chip">
+    $('bibliotekDelar').innerHTML = [['alla', tr('Alla världsdelar')], ...Object.entries(DELAR)].map(([id, namn]) => `<label class="chip">
         <input type="radio" name="bibDel" value="${id}" ${B.del === id ? 'checked' : ''}><span>${namn}</span>
       </label>`).join('');
-    $('bibliotekTrafik').innerHTML = [['alla', 'All trafik'], ['höger', 'Högertrafik'], ['vänster', 'Vänstertrafik']].map(([id, namn]) => `<label class="chip">
+    $('bibliotekTrafik').innerHTML = [['alla', tr('All trafik')], ['höger', tr('Högertrafik')], ['vänster', tr('Vänstertrafik')]].map(([id, namn]) => `<label class="chip">
         <input type="radio" name="bibTrafik" value="${id}" ${B.trafik === id ? 'checked' : ''}><span>${namn}</span>
       </label>`).join('');
     ritaBibliotek();
@@ -390,26 +397,26 @@
     const lander = sorteraSv(Object.keys(LT)).filter(l =>
       (B.del === 'alla' || LT[l].del === B.del) &&
       (B.trafik === 'alla' || LT[l].trafik === B.trafik) &&
-      (!sok || l.toLowerCase().includes(sok)));
-    $('bibliotekAntal').textContent = `${lander.length} av ${Object.keys(LT).length} länder`;
+      (!sok || l.toLowerCase().includes(sok) || dn(l).toLowerCase().includes(sok)));
+    $('bibliotekAntal').textContent = tr('{antal} av {alla} länder', { antal: lander.length, alla: Object.keys(LT).length });
     $('bibliotekLista').innerHTML = lander.length ? lander.map(l => {
       const r = stat.lander[l];
       const antal = platserPerLand.get(l)?.length || 0;
       return `<article class="landkort" id="landkort-${esc(LT[l].plonkit)}">
         <div class="landkort-topp">
-          <h3>${esc(l)}</h3>
-          ${r ? `<span class="traff-chip">${r.ratt} av ${r.ratt + r.fel} rätt</span>` : ''}
+          <h3>${esc(dn(l))}</h3>
+          ${r ? `<span class="traff-chip">${tr('{ratt} av {alla} rätt', { ratt: r.ratt, alla: r.ratt + r.fel })}</span>` : ''}
         </div>
-        <p class="landkort-meta">${DELAR[LT[l].del]} · ${trafikText(l).toLowerCase()} · ${antal} ${antal === 1 ? 'plats' : 'platser'} i spelet</p>
+        <p class="landkort-meta">${DELAR[LT[l].del]} · ${trafikText(l).toLowerCase()} · ${antal === 1 ? tr('1 plats i spelet') : tr('{antal} platser i spelet', { antal })}</p>
         ${uniktHtml(l)}
         ${tipsHtml(l)}
-        <p class="liknar">Blandas ihop med ${LT[l].liknar.map(x => `<button class="liknar-knapp" type="button" data-visa="${esc(x)}">${esc(x)}</button>`).join(' ')}</p>
+        <p class="liknar">${tr('Blandas ihop med')} ${LT[l].liknar.map(x => `<button class="liknar-knapp" type="button" data-visa="${esc(x)}">${esc(dn(x))}</button>`).join(' ')}</p>
         <div class="knapprad">
-          ${antal ? `<button class="knapp knapp-bana knapp-liten" type="button" data-trana="${esc(l)}">Träna på ${esc(l)}</button>` : ''}
+          ${antal ? `<button class="knapp knapp-bana knapp-liten" type="button" data-trana="${esc(l)}">${tr('Träna på {land}', { land: esc(dn(l)) })}</button>` : ''}
           <a class="knapp knapp-papper knapp-liten" href="${plonkitUrl(l)}" target="_blank" rel="noopener">Plonk It ↗</a>
         </div>
       </article>`;
-    }).join('') : '<p class="tomt">Inga länder matchar sökningen.</p>';
+    }).join('') : `<p class="tomt">${tr('Inga länder matchar sökningen.')}</p>`;
   }
 
   function visaLandkort(land) {
@@ -445,8 +452,8 @@
     const rader = Object.entries(stat.lander);
     if (!rader.length) {
       $('statistikInnehall').innerHTML = `<div class="tomt">
-        <p>Ingen statistik ännu. Svara på några platser i övningen Vilket land?, så visar den här sidan vilka länder du missar och vilka du blandar ihop.</p>
-        <button class="knapp knapp-bana" type="button" data-starta-land>Börja träna</button>
+        <p>${tr('Ingen statistik ännu. Svara på några platser i övningen Vilket land?, så visar den här sidan vilka länder du missar och vilka du blandar ihop.')}</p>
+        <button class="knapp knapp-bana" type="button" data-starta-land>${tr('Börja träna')}</button>
       </div>`;
       return;
     }
@@ -461,47 +468,47 @@
 
     $('statistikInnehall').innerHTML = `
       <div class="nyckeltal">
-        <div><p class="stor-siffra">${nf.format(totalt)}</p><p class="etikett">svar</p></div>
-        <div><p class="stor-siffra">${Math.round((ratt / totalt) * 100)} %</p><p class="etikett">rätt</p></div>
-        <div><p class="stor-siffra">${stat.iRadBasta}</p><p class="etikett">bästa svit utan hjälp</p></div>
-        <div><p class="stor-siffra">${rader.length}</p><p class="etikett">länder du mött</p></div>
+        <div><p class="stor-siffra">${nf.format(totalt)}</p><p class="etikett">${tr('svar')}</p></div>
+        <div><p class="stor-siffra">${Math.round((ratt / totalt) * 100)} %</p><p class="etikett">${tr('rätt')}</p></div>
+        <div><p class="stor-siffra">${stat.iRadBasta}</p><p class="etikett">${tr('bästa svit utan hjälp')}</p></div>
+        <div><p class="stor-siffra">${rader.length}</p><p class="etikett">${tr('länder du mött')}</p></div>
       </div>
 
       <div class="stat-kolumner">
         <section>
-          <h3>Länder du missar oftast</h3>
+          <h3>${tr('Länder du missar oftast')}</h3>
           ${svaga.length ? `<ol class="statlista">${svaga.map(([l, r]) => {
             const andel = r.ratt / (r.ratt + r.fel);
             return `<li>
-              <button class="liknar-knapp" type="button" data-visa="${esc(l)}">${esc(l)}</button>
+              <button class="liknar-knapp" type="button" data-visa="${esc(l)}">${esc(dn(l))}</button>
               <span class="statstapel" aria-hidden="true"><i style="width:${Math.round(andel * 100)}%"></i></span>
-              <span class="statsiffra">${r.ratt} av ${r.ratt + r.fel}</span>
+              <span class="statsiffra">${tr('{ratt} av {alla}', { ratt: r.ratt, alla: r.ratt + r.fel })}</span>
             </li>`;
-          }).join('')}</ol>` : '<p class="etikett">Du har inte missat något land ännu.</p>'}
+          }).join('')}</ol>` : `<p class="etikett">${tr('Du har inte missat något land ännu.')}</p>`}
         </section>
 
         <section>
-          <h3>Du blandar ihop</h3>
+          <h3>${tr('Du blandar ihop')}</h3>
           ${par.length ? `<ol class="parlista">${par.map(([nyckel, antal]) => {
             const [land, gissat] = nyckel.split('>');
             return `<li>
-              <span><b>${esc(land)}</b> <span class="etikett">svarade</span> ${esc(gissat)}</span>
-              <span class="statsiffra">${antal} ${antal === 1 ? 'gång' : 'gånger'}</span>
-              ${platserPerLand.has(land) ? `<button class="knapp knapp-papper knapp-liten" type="button" data-trana="${esc(land)}">Öva</button>` : ''}
+              <span><b>${esc(dn(land))}</b> <span class="etikett">${tr('svarade')}</span> ${esc(dn(gissat))}</span>
+              <span class="statsiffra">${antal === 1 ? tr('1 gång') : tr('{antal} gånger', { antal })}</span>
+              ${platserPerLand.has(land) ? `<button class="knapp knapp-papper knapp-liten" type="button" data-trana="${esc(land)}">${tr('Öva')}</button>` : ''}
             </li>`;
-          }).join('')}</ol>` : '<p class="etikett">Inga förväxlingar ännu.</p>'}
+          }).join('')}</ol>` : `<p class="etikett">${tr('Inga förväxlingar ännu.')}</p>`}
         </section>
       </div>
 
       <div class="knapprad">
-        <button class="knapp knapp-bana" type="button" data-starta-svaga>Öva på mina svaga länder</button>
-        <button class="knapp knapp-papper" type="button" id="nollstall">Nollställ statistiken</button>
+        <button class="knapp knapp-bana" type="button" data-starta-svaga>${tr('Öva på mina svaga länder')}</button>
+        <button class="knapp knapp-papper" type="button" id="nollstall">${tr('Nollställ statistiken')}</button>
       </div>
       <div id="nollstallFraga" class="bekrafta-inline" hidden>
-        <p>All träningsstatistik raderas från den här webbläsaren.</p>
+        <p>${tr('All träningsstatistik raderas från den här webbläsaren.')}</p>
         <div class="knapprad">
-          <button class="knapp knapp-tryck" type="button" id="nollstallJa">Nollställ</button>
-          <button class="knapp knapp-papper" type="button" id="nollstallNej">Avbryt</button>
+          <button class="knapp knapp-tryck" type="button" id="nollstallJa">${tr('Nollställ')}</button>
+          <button class="knapp knapp-papper" type="button" id="nollstallNej">${tr('Avbryt')}</button>
         </div>
       </div>`;
   }

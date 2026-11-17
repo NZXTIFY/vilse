@@ -15,7 +15,7 @@
   'use strict';
 
   const V = window.Vilse;
-  const { $, nf, las, spara } = V;
+  const { $, nf, las, spara, tr, dn } = V;
 
   const PREFIX = 'vilse-rum-';
   const KODTECKEN = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // utan 0/O och 1/I som är lätta att blanda ihop
@@ -93,7 +93,7 @@
   function lasNamn() {
     const namn = $('multiNamn').value.trim().replace(/\s+/g, ' ').slice(0, 16);
     if (!namn) {
-      visaStatus('Skriv ditt namn först, så vet de andra vem du är.', true);
+      visaStatus(tr('Skriv ditt namn först, så vet de andra vem du är.'), true);
       $('multiNamn').focus();
       return '';
     }
@@ -118,12 +118,12 @@
 
   function peerFel(err) {
     switch (err.type) {
-      case 'browser-incompatible': return 'Den här webbläsaren stöder inte direktanslutningar. Prova Chrome, Safari, Firefox eller Edge.';
+      case 'browser-incompatible': return tr('Den här webbläsaren stöder inte direktanslutningar. Prova Chrome, Safari, Firefox eller Edge.');
       case 'network':
       case 'server-error':
       case 'socket-error':
-      case 'socket-closed': return 'Kunde inte nå kopplingsservern. Kontrollera internetanslutningen och försök igen.';
-      default: return `Anslutningen fungerade inte (${err.type}). Försök igen.`;
+      case 'socket-closed': return tr('Kunde inte nå kopplingsservern. Kontrollera internetanslutningen och försök igen.');
+      default: return tr('Anslutningen fungerade inte ({fel}). Försök igen.', { fel: err.type });
     }
   }
 
@@ -151,12 +151,12 @@
   function skapaRum() {
     const namn = lasNamn();
     if (!namn) return;
-    if (!window.Peer) { visaStatus('Kunde inte ladda anslutningen. Kontrollera internetanslutningen och ladda om sidan.', true); return; }
+    if (!window.Peer) { visaStatus(tr('Kunde inte ladda anslutningen. Kontrollera internetanslutningen och ladda om sidan.'), true); return; }
     stang();
     M.roll = 'vard';
     M.kod = nyKod();
     M.installningar = { ...M.installningar, ...las('vilse.rumVal', {}) };
-    visaStatus('Skapar rum…');
+    visaStatus(tr('Skapar rum…'));
 
     const peer = new Peer(PREFIX + M.kod, PEER_VAL);
     M.peer = peer;
@@ -199,13 +199,13 @@
       case 'hej': {
         let spelare = M.spelare.find(s => s.id === id);
         if (!spelare && M.spelare.length >= MAX_SPELARE) {
-          skicka(anslutning, { t: 'fel', text: `Rummet är fullt. Högst ${MAX_SPELARE} spelare får vara med.` });
+          skicka(anslutning, { t: 'fel', kod: 'fullt', text: `Rummet är fullt. Högst ${MAX_SPELARE} spelare får vara med.` });
           setTimeout(() => anslutning.close(), 800);
           return;
         }
         M.anslutningar.set(id, anslutning);
         if (!spelare) {
-          spelare = { id, namn: unikt(String(m.namn || 'Spelare').slice(0, 16)), farg: ledigFarg() };
+          spelare = { id, namn: unikt(String(m.namn || tr('Spelare')).slice(0, 16)), farg: ledigFarg() };
           M.spelare.push(spelare);
           M.total[id] = 0;
         }
@@ -226,7 +226,7 @@
   }
 
   function unikt(namn) {
-    const ren = namn.trim() || 'Spelare';
+    const ren = namn.trim() || tr('Spelare');
     let kandidat = ren, n = 2;
     while (M.spelare.some(s => s.namn.toLowerCase() === kandidat.toLowerCase())) kandidat = `${ren} ${n++}`;
     return kandidat;
@@ -423,15 +423,15 @@
     if (!namn) return;
     const kod = String(kodIn || $('multiKod').value).trim().toUpperCase();
     if (!/^[A-Z0-9]{4}$/.test(kod)) {
-      visaStatus('Rumskoden har fyra tecken, till exempel K7Q2.', true);
+      visaStatus(tr('Rumskoden har fyra tecken, till exempel K7Q2.'), true);
       $('multiKod').focus();
       return;
     }
-    if (!window.Peer) { visaStatus('Kunde inte ladda anslutningen. Kontrollera internetanslutningen och ladda om sidan.', true); return; }
+    if (!window.Peer) { visaStatus(tr('Kunde inte ladda anslutningen. Kontrollera internetanslutningen och ladda om sidan.'), true); return; }
     stang();
     M.roll = 'gast';
     M.kod = kod;
-    visaStatus(`Ansluter till rum ${kod}…`);
+    visaStatus(tr('Ansluter till rum {kod}…', { kod }));
 
     const peer = new Peer(PEER_VAL);
     M.peer = peer;
@@ -444,10 +444,10 @@
       // Har värden skickat sitt svar har rummet hittats, och då är det nätverket som stoppar anslutningen
       if (harSvarat()) steg = 'natverk';
       tillbaka(steg === 'server'
-        ? 'Kunde inte nå kopplingsservern. Kontrollera internetanslutningen och försök igen.'
+        ? tr('Kunde inte nå kopplingsservern. Kontrollera internetanslutningen och försök igen.')
         : steg === 'vard'
-          ? `Rum ${kod} svarar inte. Kontrollera koden, och be värden ha spelet öppet i en flik som syns (inte i viloläge) och försöka igen.`
-          : `Hittade rum ${kod}, men nätverket stoppar anslutningen till värden. Det händer på vissa mobilnät och skol- eller jobbnät. Prova ett annat nätverk, till exempel samma wifi som värden.`, true);
+          ? tr('Rum {kod} svarar inte. Kontrollera koden, och be värden ha spelet öppet i en flik som syns (inte i viloläge) och försöka igen.', { kod })
+          : tr('Hittade rum {kod}, men nätverket stoppar anslutningen till värden. Det händer på vissa mobilnät och skol- eller jobbnät. Prova ett annat nätverk, till exempel samma wifi som värden.', { kod }), true);
     }, GE_UPP_MS);
 
     const harSvarat = () => !!(M.vard && M.vard.peerConnection && M.vard.peerConnection.remoteDescription);
@@ -477,10 +477,10 @@
         M.pulsTimer = setInterval(gastPuls, PULS_MS);
       });
       anslutning.on('data', m => { M.senastFranVard = Date.now(); gastTarEmot(m); });
-      anslutning.on('close', () => { if (M.vard === anslutning && oppen) tillbaka('Värden lämnade rummet.'); });
+      anslutning.on('close', () => { if (M.vard === anslutning && oppen) tillbaka(tr('Värden lämnade rummet.')); });
       anslutning.on('error', () => {
         if (M.vard !== anslutning) return;
-        if (oppen) tillbaka('Anslutningen till värden bröts.', true);
+        if (oppen) tillbaka(tr('Anslutningen till värden bröts.'), true);
         else steg = 'natverk';   // ICE misslyckades; försöket görs om eller ges upp av timrarna
       });
     }
@@ -493,7 +493,7 @@
       if (M.peer !== peer) return;
       if (err.type === 'peer-unavailable') {
         clearTimeout(geUpp);
-        tillbaka(`Hittade inget rum med koden ${kod}. Kontrollera koden och att värden har rummet öppet.`, true);
+        tillbaka(tr('Hittade inget rum med koden {kod}. Kontrollera koden och att värden har rummet öppet.', { kod }), true);
       } else if (!oppen && (err.type === 'negotiation-failed' || err.type === 'webrtc')) {
         steg = 'natverk';
       } else {
@@ -505,7 +505,7 @@
 
   function gastPuls() {
     skicka(M.vard, { t: 'puls' });
-    if (Date.now() - M.senastFranVard > TYST_MS) tillbaka('Tappade kontakten med värden.', true);
+    if (Date.now() - M.senastFranVard > TYST_MS) tillbaka(tr('Tappade kontakten med värden.'), true);
   }
 
   function gastTarEmot(m) {
@@ -519,8 +519,8 @@
       case 'tid': if (m.nr === M.nr) visaKortadTid(m); break;
       case 'resultat': visaResultat(m); break;
       case 'slut': visaSlut(m); break;
-      case 'fel': tillbaka(m.text, true); break;
-      case 'stangt': tillbaka('Värden stängde rummet.'); break;
+      case 'fel': tillbaka(m.kod === 'fullt' ? tr('Rummet är fullt. Högst {max} spelare får vara med.', { max: MAX_SPELARE }) : m.text, true); break;
+      case 'stangt': tillbaka(tr('Värden stängde rummet.')); break;
       default: break;
     }
   }
@@ -546,12 +546,12 @@
     const vard = M.roll === 'vard';
     $('lobbyKod').textContent = M.kod;
     $('lobbyLank').textContent = lank(M.kod).replace(/^https?:\/\//, '');
-    $('lobbySpelareRubrik').textContent = `Spelare (${M.spelare.length} av ${MAX_SPELARE})`;
+    $('lobbySpelareRubrik').textContent = tr('Spelare ({antal} av {max})', { antal: M.spelare.length, max: MAX_SPELARE });
     $('lobbySpelare').innerHTML = M.spelare.map((s, i) => `<li>
         <span class="prick" style="background:${s.farg}" aria-hidden="true"></span>
         <span class="spelarnamn">${esc(s.namn)}</span>
-        ${i === 0 ? '<span class="tagg">värd</span>' : ''}
-        ${s.id === M.jag ? '<span class="tagg tagg-du">du</span>' : ''}
+        ${i === 0 ? `<span class="tagg">${tr('värd')}</span>` : ''}
+        ${s.id === M.jag ? `<span class="tagg tagg-du">${tr('du')}</span>` : ''}
       </li>`).join('');
 
     $('lobbyVard').hidden = !vard;
@@ -562,7 +562,7 @@
           <input type="radio" name="${namn}" value="${v.id}" ${v.id === vald ? 'checked' : ''}><span>${esc(v.namn)}</span>
         </label>`).join('');
       const lage = arQuiz(i) ? i.lage : 'gatuvy';
-      $('lobbyLage').innerHTML = chips('rumLage', [{ id: 'gatuvy', namn: 'Gatuvy' }, ...V.quizLagen], lage);
+      $('lobbyLage').innerHTML = chips('rumLage', [{ id: 'gatuvy', namn: tr('Gatuvy') }, ...V.quizLagen], lage);
       $('lobbyKartaFalt').hidden = lage !== 'gatuvy';
       $('lobbyUrvalFalt').hidden = lage !== 'hemma';
       $('lobbyKarta').innerHTML = chips('rumKarta', V.KARTOR, i.karta);
@@ -574,9 +574,9 @@
       $('lobbyTid').innerHTML = TIDER.map(t => `<label>
           <input type="radio" name="rumTid" value="${t.s}" ${t.s === M.installningar.tid ? 'checked' : ''}><span>${t.namn}</span>
         </label>`).join('');
-      $('lobbyStart').textContent = M.spelare.length > 1 ? 'Starta spelet' : 'Starta ensam';
+      $('lobbyStart').textContent = M.spelare.length > 1 ? tr('Starta spelet') : tr('Starta ensam');
     } else {
-      $('lobbyGast').innerHTML = `<b>${esc(lagesnamn(M.installningar))}</b> · ${tidnamn(M.installningar.tid)} per runda<br>Väntar på att värden startar spelet…`;
+      $('lobbyGast').innerHTML = `<b>${esc(lagesnamn(M.installningar))}</b> · ${tr('{tid} per runda', { tid: tidnamn(M.installningar.tid) })}<br>${tr('Väntar på att värden startar spelet…')}`;
     }
   }
 
@@ -595,12 +595,12 @@
 
   function visaGissat(m) {
     $('hudGissat').textContent = `${m.antal} / ${m.av}`;
-    if (V.S.multiGissat && V.S.lage === 'spel') $('gissaKnapp').textContent = `Väntar på de andra (${m.antal} av ${m.av} klara)`;
+    if (V.S.multiGissat && V.S.lage === 'spel') $('gissaKnapp').textContent = tr('Väntar på de andra ({antal} av {av} klara)', { antal: m.antal, av: m.av });
   }
 
   function visaKortadTid(m) {
-    const vem = m.namn && m.namn !== (M.spelare.find(s => s.id === M.jag) || {}).namn ? m.namn : 'Någon';
-    V.kortaTid(m.kvarMs, `${vem} har gissat. ${Math.round(m.kvarMs / 1000)} sekunder kvar!`);
+    const vem = m.namn && m.namn !== (M.spelare.find(s => s.id === M.jag) || {}).namn ? m.namn : tr('Någon');
+    V.kortaTid(m.kvarMs, tr('{vem} har gissat. {sek} sekunder kvar!', { vem, sek: Math.round(m.kvarMs / 1000) }));
   }
 
   function visaResultat(m) {
@@ -612,19 +612,19 @@
     V.S.multi = true;
     V.S.hemma = !!quiz;
     if (quiz) V.S.karta = { ...quiz, pool: [] };
-    $('multiRundNr').textContent = `Runda ${m.nr + 1} av ${m.antal}`;
+    $('multiRundNr').textContent = tr('Runda {nr} av {antal}', { nr: m.nr + 1, antal: m.antal });
     $('multiKlubb').hidden = !quiz;
     if (quiz) V.fyllKlubbrad({ klubb: m.fraga }, $('multiKlubb'));
-    $('multiPlatsEtikett').textContent = quiz ? quiz.quiz.svar : 'Platsen:';
-    $('multiPlats').textContent = `${ort}, ${land}`;
+    $('multiPlatsEtikett').textContent = quiz ? quiz.quiz.svar : tr('Platsen:');
+    $('multiPlats').textContent = `${dn(ort)}, ${dn(land)}`;
     $('multiLista').innerHTML = m.rader.map((r, i) => `<li class="${r.id === M.jag ? 'jag' : ''}">
         <span class="placering">${i + 1}</span>
         <span class="prick" style="background:${r.farg}" aria-hidden="true"></span>
-        <span class="spelarnamn">${esc(r.namn)}<small>${r.km == null ? 'ingen gissning' : `${V.fmtAvstand(r.km)} bort${r.ledtrad ? ' · ledtråd' : ''}`}</small></span>
-        <span class="poang">+${nf.format(r.poang)}<small>totalt ${nf.format(r.total)}</small></span>
+        <span class="spelarnamn">${esc(r.namn)}<small>${r.km == null ? tr('ingen gissning') : `${tr('{avstand} bort', { avstand: V.fmtAvstand(r.km) })}${r.ledtrad ? ` · ${tr('ledtråd')}` : ''}`}</small></span>
+        <span class="poang">+${nf.format(r.poang)}<small>${tr('totalt {poang}', { poang: nf.format(r.total) })}</small></span>
       </li>`).join('');
     $('multiNasta').hidden = !vard;
-    $('multiNasta').textContent = m.nr + 1 < m.antal ? 'Nästa runda' : 'Se slutresultat';
+    $('multiNasta').textContent = m.nr + 1 < m.antal ? tr('Nästa runda') : tr('Se slutresultat');
     $('multiVantar').hidden = vard;
     const jag = m.rader.find(r => r.id === M.jag);
     if (jag) V.S.multiTotal = jag.total;
@@ -638,10 +638,10 @@
     const vard = M.roll === 'vard';
     const [forsta, andra] = m.rader;
     $('multiVinnare').textContent = m.rader.length === 1
-      ? `Du fick ${nf.format(forsta.total)} poäng.`
+      ? tr('Du fick {poang} poäng.', { poang: nf.format(forsta.total) })
       : andra && andra.total === forsta.total
-        ? `Delad seger med ${nf.format(forsta.total)} poäng!`
-        : `${forsta.namn} vinner med ${nf.format(forsta.total)} poäng!`;
+        ? tr('Delad seger med {poang} poäng!', { poang: nf.format(forsta.total) })
+        : tr('{namn} vinner med {poang} poäng!', { namn: forsta.namn, poang: nf.format(forsta.total) });
     $('multiSlutLista').innerHTML = m.rader.map((r, i) => `<li class="${r.id === M.jag ? 'jag' : ''}">
         <span class="placering">${i + 1}</span>
         <span class="prick" style="background:${r.farg}" aria-hidden="true"></span>
@@ -668,12 +668,12 @@
   async function delaLank() {
     const url = lank(M.kod);
     if (navigator.share && V.mobil.matches) {
-      try { await navigator.share({ title: 'Lost in Lesh', text: `Spela Lost in Lesh med mig! Rumskod ${M.kod}`, url }); return; } catch { /* avbrutet */ }
+      try { await navigator.share({ title: 'Lost in Lesh', text: tr('Spela Lost in Lesh med mig! Rumskod {kod}', { kod: M.kod }), url }); return; } catch { /* avbrutet */ }
     }
     try {
       await navigator.clipboard.writeText(url);
-      $('delaRum').textContent = 'Länken är kopierad';
-      setTimeout(() => { $('delaRum').textContent = 'Dela länk'; }, 2200);
+      $('delaRum').textContent = tr('Länken är kopierad');
+      setTimeout(() => { $('delaRum').textContent = tr('Dela länk'); }, 2200);
     } catch {
       const urval = document.createRange();
       urval.selectNodeContents($('lobbyLank'));
@@ -732,7 +732,7 @@
   if (inbjudan && /^[A-Za-z0-9]{4}$/.test(inbjudan)) {
     if (V.visaFlik) V.visaFlik('multi');
     $('multiKod').value = inbjudan.toUpperCase();
-    visaStatus(`Du är inbjuden till rum ${inbjudan.toUpperCase()}. Skriv ditt namn och tryck Gå med.`);
+    visaStatus(tr('Du är inbjuden till rum {kod}. Skriv ditt namn och tryck Gå med.', { kod: inbjudan.toUpperCase() }));
     ($('multiNamn').value ? $('gaMed') : $('multiNamn')).focus({ preventScroll: true });
   }
 })();

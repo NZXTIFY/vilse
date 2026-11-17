@@ -2,7 +2,7 @@
 
 Ett geografispel i stil med GeoGuessr. Du hamnar på en slumpad plats i Google Street View, ser dig omkring och sätter ut en nål på kartan där du tror att du är. Fem rundor, högst 5 000 poäng per runda.
 
-Fliken **Quiz** har sex lägen där du får en fråga och sätter nålen på rätt plats: Hemmaplan (klubbmärke → arena), Bilmärken, Företag, Historia, Landmärken och Huvudstäder. Fliken **Träna** lär dig känna igen länder med ledtrådar från [Plonk It](https://www.plonkit.net/guide).
+Fliken **Quiz** har sju lägen där du får en fråga och sätter nålen på rätt plats: Hemmaplan (klubbmärke → arena), Bilmärken, Företag, Historia, Landmärken, Huvudstäder och Fotbollsspelare (foto → födelseort). Fliken **Träna** lär dig känna igen länder med ledtrådar från [Plonk It](https://www.plonkit.net/guide).
 
 **Spela: https://nzxtify.github.io/vilse/**
 
@@ -27,7 +27,7 @@ Det går oftast också att dubbelklicka på `index.html`.
 
 ## Quiz
 
-Sex lägen med samma upplägg: en fråga till vänster, en stor karta till höger, fem rundor. Koden finns i `quiz.js`.
+Sju lägen med samma upplägg: en fråga till vänster, en stor karta till höger, fem rundor. Koden finns i `quiz.js`.
 
 | Läge | Du får se | Du ska hitta | Full poäng inom |
 |---|---|---|---|
@@ -37,12 +37,13 @@ Sex lägen med samma upplägg: en fråga till vänster, en stor karta till höge
 | Historia | en händelse och ett årtal | platsen där det hände | 10 km |
 | Landmärken | namnet på en sevärdhet | sevärdheten | 1 km |
 | Huvudstäder | ett land | landets huvudstad | 10 km |
+| Fotbollsspelare | ett foto på en känd spelare | staden där spelaren är född | 25 km |
 
 - **Poäng:** hälften för rätt trakt och hälften för att pricka platsen, `5000 · (0,5 · e^(−km/a) + 0,5 · e^(−km/b))`. Måtten `a` och `b` är olika för varje läge (15 och 500 km i Hemmaplan, 80 och 900 km för huvudkontor) och står i `LAGEN` i `quiz.js`.
 - **Ledtråd:** i lägena med märken kan du visa namnet, och i Historia och Landmärken landet. Det halverar rundans poäng.
 - Hemmaplan har fem urval: Storklubbar (77 handplockade), Europas toppligor (alla 96 lag i Premier League, La Liga, Serie A, Bundesliga och Ligue 1 säsongen 2026–27), Hela världen, Norden och Sverige, och två svårighetsgrader. **Svårt** tar bara med märken där varken klubbens namn, dess förkortning (AIK, PSV, HJK) eller orten står, till exempel FC Barcelonas och Juventus märken men inte Elfsborgs eller Arsenals. Allmänna förkortningar (IF, FC, IFK) och initialer (DIF, FCB) räknas inte som namnet, och inte heller text på arabiska. Märken där namnet går att täcka över är också med: spelet lägger då färgade ytor över namnet (`masker.js`, kontrolleras i `verktyg/masker.html`). Bildfilerna ändras inte. Rekord sparas per läge, urval och svårighetsgrad.
 - **Klubbarna** finns i `klubbar.js` (337 st): `[klubb, hemmaarena, lat, lng, land, region, logga, stor, namn, liga]`, där namn är 1 om namnet står i märket och liga är `pl`, `ll`, `sa`, `bl` eller `l1` för lagen i toppligorna. Alla lag i toppligorna är med i Svårt, med masker där namnet står i märket, och likaså ett tjugotal kända lag från Sydamerika, Nordamerika och Asien. Klubbar, arenor och koordinater kommer från [Wikidata](https://www.wikidata.org/) (CC0).
-- **Övriga frågor** finns i `kunskap.js`: `[fråga, svar, lat, lng, land, extra]`, där extra är märkets bild eller händelsens årtal. Koordinaterna kommer från artiklarna på engelska Wikipedia, huvudstäderna från Wikidata.
+- **Övriga frågor** finns i `kunskap.js`: `[fråga, svar, lat, lng, land, extra]`, där extra är märkets bild, spelarens foto eller händelsens årtal. Koordinaterna kommer från artiklarna på engelska Wikipedia, huvudstäderna och spelarna (foto, födelseort) från Wikidata. Spelarna är 138 kända fotbollsspelare från hela världen; den som är född i en stadsdel har staden som svar.
 - **Märkena** hämtas direkt från [Wikimedia Commons](https://commons.wikimedia.org/) när de finns där som fria bilder. Skyddade märken (de flesta klubbmärken och några bilmärken) hämtas från artikeln på engelska Wikipedia, där de används som lågupplösta bilder ("fair use"). Resultatkortet länkar till bildens sida. Går ett märke inte att ladda visas namnet i en sköld i stället.
 - Lägg till en fråga genom att skriva en ny rad i `klubbar.js` eller `kunskap.js`. En bild anges som filnamnet på Commons (utan `File:`), `en:filnamn` för en bild på engelska Wikipedia, eller tomt.
 
@@ -55,6 +56,16 @@ Sex lägen med samma upplägg: en fråga till vänster, en stor karta till höge
 - **Din statistik** visar träffprocent per land och vilka länder du blandar ihop.
 
 Varje land väljs lika ofta, oavsett hur många platser det har. Hongkong, Svalbard, Madeira, Alaska och Hawaii räknas som egna länder, precis som hos Plonk It.
+
+## Språk
+
+Spelet finns på svenska och engelska. Knappen uppe till höger på startsidan byter språk, och valet sparas i webbläsaren. Första gången gäller webbläsarens språk: svenska för svensk, norsk eller dansk webbläsare, annars engelska.
+
+- Spelets texter och data är på svenska. `sprak.js` laddas först och slår upp varje text i `engelska.js` med den svenska texten som nyckel: `SPRAK.t()` för texter i gränssnittet och `SPRAK.d()` för namn i datan (länder, orter, frågor, klubbar). Saknas en översättning visas svenskan.
+- Ledtrådarna i Träna finns på engelska i `ledtradar-en.js`, med samma nycklar som `ledtradar.js`.
+- De engelska filerna laddas bara när engelska är valt.
+- I rum med vänner skickas datan på svenska, och var och en ser den på sitt eget språk.
+- Länders och huvudstäders engelska namn kommer från Wikidata.
 
 ## Med vänner
 
